@@ -1,17 +1,16 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Search, Layers, Eye, Edit3, Menu, X, BarChart3 } from 'lucide-react';
+import { Search, Layers, Eye, Menu, X, BarChart3 } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 
 export const Sidebar: React.FC = () => {
   const { activeTab, setActiveTab, sidebarOpen, toggleSidebar, generatedCarousels } = useAppStore();
 
   const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
-    { id: 'scraping', label: 'Scraping', icon: Search },
-    { id: 'carousel', label: 'Carrossel IA', icon: Layers },
-    { id: 'editor', label: 'Editor Visual', icon: Edit3, disabled: generatedCarousels.length === 0 },
-    { id: 'preview', label: 'Preview', icon: Eye }
+    { id: 'dashboard', label: 'Analytics', icon: BarChart3 },
+    { id: 'scraping', label: 'Scraping Pro', icon: Search },
+    { id: 'carousel', label: 'Gerador IA', icon: Layers },
+    { id: 'preview', label: 'Preview & Export', icon: Eye }
   ];
 
   return (
@@ -36,52 +35,82 @@ export const Sidebar: React.FC = () => {
             <div className="w-8 h-8 bg-[#1500FF] rounded-lg flex items-center justify-center">
               <Layers size={20} className="text-white" />
             </div>
-            <h1 className="text-white font-inter font-semibold text-lg">Analytics Pro</h1>
+            <div>
+              <h1 className="text-white font-inter font-semibold text-lg">Scrap Pro</h1>
+              <p className="text-gray-400 font-inter text-xs">Powered by Apify</p>
+            </div>
           </div>
 
           <nav className="space-y-2">
             {menuItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
-              const isDisabled = item.disabled;
               
               return (
                 <motion.button
                   key={item.id}
-                  onClick={() => !isDisabled && setActiveTab(item.id as any)}
+                  onClick={() => setActiveTab(item.id as any)}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-inter font-medium transition-all duration-200 ${
-                    isDisabled
-                      ? 'text-gray-600 cursor-not-allowed'
-                      : isActive 
-                        ? 'bg-[#1500FF] text-white' 
-                        : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                    isActive 
+                      ? 'bg-[#1500FF] text-white' 
+                      : 'text-gray-400 hover:text-white hover:bg-gray-800'
                   }`}
-                  whileHover={{ x: isActive || isDisabled ? 0 : 4 }}
-                  whileTap={{ scale: isDisabled ? 1 : 0.98 }}
+                  whileHover={{ x: isActive ? 0 : 4 }}
+                  whileTap={{ scale: 0.98 }}
                 >
                   <Icon size={20} />
-                  {item.label}
-                  {item.id === 'editor' && generatedCarousels.length > 0 && (
-                    <div className="ml-auto w-2 h-2 bg-green-500 rounded-full"></div>
-                  )}
+                  <span className="flex-1 text-left">{item.label}</span>
+                  
+                  {/* Status indicators */}
                   {item.id === 'dashboard' && (
-                    <div className="ml-auto w-2 h-2 bg-[#1500FF] rounded-full animate-pulse"></div>
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                  )}
+                  
+                  {item.id === 'preview' && generatedCarousels.length > 0 && (
+                    <div className="bg-green-500 text-black px-2 py-1 rounded-full text-xs font-bold">
+                      {generatedCarousels.length}
+                    </div>
                   )}
                 </motion.button>
               );
             })}
           </nav>
+
+          {/* Quick Stats */}
+          <div className="mt-8 space-y-3">
+            <div className="bg-gray-800 rounded-lg p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-2 h-2 bg-green-500 rounded-full" />
+                <span className="text-white font-inter text-sm font-medium">Apify Status</span>
+              </div>
+              <p className="text-gray-400 font-inter text-xs">Conectado e operacional</p>
+            </div>
+
+            {generatedCarousels.length > 0 && (
+              <div className="bg-[#1500FF]/20 border border-[#1500FF]/30 rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <Layers size={14} className="text-[#1500FF]" />
+                  <span className="text-[#1500FF] font-inter text-sm font-medium">Carrosséis</span>
+                </div>
+                <p className="text-gray-300 font-inter text-xs">
+                  {generatedCarousels.length} prontos para export
+                </p>
+              </div>
+            )}
+          </div>
         </div>
 
+        {/* Footer */}
         <div className="absolute bottom-6 left-6 right-6">
-          <div className="bg-gray-800 rounded-lg p-4">
-            <h3 className="text-white font-inter font-medium text-sm mb-2">Status Apify</h3>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="text-gray-400 text-xs font-inter">Conectado e operacional</span>
+          <div className="bg-gray-800 rounded-lg p-4 text-center">
+            <div className="text-green-400 font-inter text-lg font-bold mb-1">
+              98/100
             </div>
-            <div className="mt-2 text-xs font-inter text-gray-500">
-              API Rate: 98/100
+            <div className="text-gray-400 font-inter text-xs">
+              API Rate Limit
+            </div>
+            <div className="w-full bg-gray-700 rounded-full h-1 mt-2">
+              <div className="bg-green-500 h-1 rounded-full" style={{ width: '98%' }} />
             </div>
           </div>
         </div>

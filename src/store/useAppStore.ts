@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { scrapingService } from '../services/scrapingService';
+import { apifyService } from '../services/apifyService';
 import { openAIService } from '../services/openAIService';
 
 export interface Article {
@@ -44,7 +44,7 @@ interface AppState {
   generationError: string | null;
   
   // UI State
-  activeTab: 'dashboard' | 'scraping' | 'carousel' | 'preview' | 'editor';
+  activeTab: 'dashboard' | 'scraping' | 'carousel' | 'preview';
   sidebarOpen: boolean;
   
   // Actions
@@ -61,7 +61,7 @@ interface AppState {
   setCurrentEditingCarousel: (carousel: CarouselCard[] | null) => void;
   updateCarouselCard: (index: number, updatedCard: CarouselCard) => void;
   
-  setActiveTab: (tab: 'dashboard' | 'scraping' | 'carousel' | 'preview' | 'editor') => void;
+  setActiveTab: (tab: 'dashboard' | 'scraping' | 'carousel' | 'preview') => void;
   toggleSidebar: () => void;
 }
 
@@ -111,15 +111,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ isScrapingLoading: true, scrapingError: null, articles: [] });
     
     try {
-      console.log(`🔍 Iniciando scraping para: "${searchKeyword}"`);
+      console.log(`🔍 Iniciando scraping profissional com Apify para: "${searchKeyword}"`);
       
-      const scrapedArticles = await scrapingService.scrapeTrends(searchKeyword);
+      // Usar Apify para scraping profissional
+      const trends = await apifyService.scrapeTrends([searchKeyword]);
+      const scrapedArticles = trends.flatMap(trend => trend.articles);
       
       if (scrapedArticles.length === 0) {
         throw new Error('Nenhum artigo encontrado para esta palavra-chave');
       }
       
-      console.log(`✅ Encontrados ${scrapedArticles.length} artigos`);
+      console.log(`✅ Encontrados ${scrapedArticles.length} artigos via Apify`);
       set({ 
         articles: scrapedArticles, 
         isScrapingLoading: false,
@@ -131,7 +133,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ 
         scrapingError: error instanceof Error 
           ? error.message 
-          : 'Erro ao realizar scraping. Verifique sua conexão e tente novamente.',
+          : 'Erro no scraping profissional. Verifique sua conexão e tente novamente.',
         isScrapingLoading: false,
         articles: []
       });
@@ -191,7 +193,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ 
         isGeneratingCarousel: false,
         currentEditingCarousel: generatedCards,
-        activeTab: 'editor' // Automaticamente vai para o editor
+        activeTab: 'preview' // Ir direto para preview
       });
       
       console.log(`✅ Carrossel gerado com sucesso! (${useAI ? 'com IA' : 'básico'})`);
