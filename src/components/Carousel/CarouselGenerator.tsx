@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Wand2, Loader, AlertCircle, Sparkles, Settings, Brain, Check, Globe, Hash, Download, ExternalLink } from 'lucide-react';
+import { Wand2, Loader, AlertCircle, Sparkles, Settings, Brain, Check, Globe, Hash, Download, ExternalLink, Grid, Eye } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { openAIService } from '../../services/openAIService';
 import { APIKeyModal } from './APIKeyModal';
@@ -22,6 +22,7 @@ export const CarouselGenerator: React.FC = () => {
   const [showAPIModal, setShowAPIModal] = useState(false);
   const [isAIEnabled, setIsAIEnabled] = useState(false);
   const [lastGeneratedCarousel, setLastGeneratedCarousel] = useState<any>(null);
+  const [viewMode, setViewMode] = useState<'preview' | 'grid'>('grid');
 
   React.useEffect(() => {
     setIsAIEnabled(openAIService.isConfigured());
@@ -375,7 +376,7 @@ export const CarouselGenerator: React.FC = () => {
         )}
       </motion.form>
 
-      {/* Carousel Preview 1080x1440 */}
+      {/* Carousel Preview */}
       {lastGeneratedCarousel && (
         <motion.div
           initial={{ y: 20, opacity: 0 }}
@@ -386,14 +387,39 @@ export const CarouselGenerator: React.FC = () => {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h3 className="text-white font-inter font-semibold text-lg">
-                Preview do Carrossel (1080x1440)
+                Carrossel Gerado ({lastGeneratedCarousel.length} cards)
               </h3>
               <p className="text-gray-400 font-inter text-sm">
-                Formato otimizado para Instagram Stories e carrosséis
+                Estilo: {selectedStyle} • Idioma: {selectedLanguage} • {isAIEnabled ? 'IA Habilitada' : 'Geração Básica'}
               </p>
             </div>
 
             <div className="flex items-center gap-3">
+              {/* View Mode Toggle */}
+              <div className="flex items-center gap-1 bg-gray-800 rounded-lg p-1">
+                <motion.button
+                  onClick={() => setViewMode('grid')}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className={`p-2 rounded-lg transition-all duration-200 ${
+                    viewMode === 'grid' ? 'bg-[#1500FF] text-white' : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <Grid size={16} />
+                </motion.button>
+                
+                <motion.button
+                  onClick={() => setViewMode('preview')}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className={`p-2 rounded-lg transition-all duration-200 ${
+                    viewMode === 'preview' ? 'bg-[#1500FF] text-white' : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <Eye size={16} />
+                </motion.button>
+              </div>
+
               <motion.button
                 onClick={handleExportToFigma}
                 whileHover={{ scale: 1.05 }}
@@ -425,7 +451,155 @@ export const CarouselGenerator: React.FC = () => {
             </div>
           </div>
 
-          <CarouselPreview1080x1440 carousel={lastGeneratedCarousel} />
+          {/* Conditional Rendering based on view mode */}
+          {viewMode === 'grid' ? (
+            /* Grid View - Show all cards */
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {lastGeneratedCarousel.map((card, index) => (
+                <motion.div
+                  key={card.id}
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ delay: index * 0.1 }}
+                  className="group cursor-pointer"
+                >
+                  <div className="bg-gradient-to-br from-gray-900 to-black rounded-xl overflow-hidden border border-gray-800 hover:border-gray-700 transition-colors">
+                    {/* Card Preview - Instagram Story Format */}
+                    <div 
+                      className="relative aspect-[9/16] overflow-hidden"
+                      style={{ backgroundColor: card.colors.background }}
+                    >
+                      {/* Image Section */}
+                      <div className="relative h-2/3 overflow-hidden">
+                        <img
+                          src={card.imageUrl}
+                          alt={card.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                        
+                        {/* Gradient Overlay */}
+                        <div 
+                          className="absolute inset-0"
+                          style={{
+                            background: `linear-gradient(to bottom, transparent 0%, ${card.colors.background}99 70%, ${card.colors.background} 100%)`
+                          }}
+                        />
+
+                        {/* Card Number */}
+                        <div className="absolute top-2 right-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded-full font-inter text-xs">
+                          {index + 1}/{lastGeneratedCarousel.length}
+                        </div>
+                      </div>
+
+                      {/* Content Section */}
+                      <div className="h-1/3 p-3 flex flex-col justify-center">
+                        <h2
+                          className="font-inter font-bold text-sm mb-1 leading-tight line-clamp-2"
+                          style={{ color: card.colors.primary }}
+                        >
+                          {card.title}
+                        </h2>
+                        
+                        <p
+                          className="font-inter font-medium text-xs mb-2 opacity-80 line-clamp-1"
+                          style={{ color: card.colors.secondary }}
+                        >
+                          {card.subtitle}
+                        </p>
+                        
+                        <p
+                          className="font-inter text-xs leading-relaxed line-clamp-2"
+                          style={{ color: card.colors.text }}
+                        >
+                          {card.description}
+                        </p>
+
+                        {/* Progress Bar */}
+                        <div className="mt-2">
+                          <div className="flex gap-1">
+                            {lastGeneratedCarousel.map((_, cardIndex) => (
+                              <div
+                                key={cardIndex}
+                                className={`h-1 rounded-full transition-all duration-300 ${
+                                  cardIndex === index ? 'bg-white flex-1' : 'bg-white/30 w-2'
+                                }`}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Card Info */}
+                    <div className="p-3 bg-gray-900/50">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-white font-inter font-medium text-xs">
+                          Card {index + 1} - {card.style}
+                        </span>
+                        <div className="flex gap-1">
+                          {Object.values(card.colors).slice(0, 3).map((color, colorIndex) => (
+                            <div
+                              key={colorIndex}
+                              className="w-3 h-3 rounded-full border border-gray-600"
+                              style={{ backgroundColor: color }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      
+                      <div className="text-xs font-inter text-gray-400">
+                        Título: {card.title.length}/60 • Desc: {card.description.length}/150
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          ) : (
+            /* Preview Mode - Interactive carousel */
+            <CarouselPreview1080x1440 carousel={lastGeneratedCarousel} />
+          )}
+
+          {/* Generation Summary */}
+          <div className="mt-6 bg-gray-900/50 rounded-lg p-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+              <div>
+                <div className="text-[#1500FF] font-inter font-bold text-lg">
+                  {lastGeneratedCarousel.length}
+                </div>
+                <div className="text-gray-400 font-inter text-xs">
+                  Cards Gerados
+                </div>
+              </div>
+              
+              <div>
+                <div className="text-green-400 font-inter font-bold text-lg">
+                  {selectedStyle}
+                </div>
+                <div className="text-gray-400 font-inter text-xs">
+                  Estilo Aplicado
+                </div>
+              </div>
+              
+              <div>
+                <div className="text-blue-400 font-inter font-bold text-lg">
+                  {isAIEnabled ? 'IA' : 'Básico'}
+                </div>
+                <div className="text-gray-400 font-inter text-xs">
+                  Modo de Geração
+                </div>
+              </div>
+              
+              <div>
+                <div className="text-purple-400 font-inter font-bold text-lg">
+                  {selectedLanguage.toUpperCase()}
+                </div>
+                <div className="text-gray-400 font-inter text-xs">
+                  Idioma
+                </div>
+              </div>
+            </div>
+          </div>
         </motion.div>
       )}
 
