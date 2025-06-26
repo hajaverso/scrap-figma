@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { Article } from '../store/useAppStore';
+import { videoTranscriptionService } from './videoTranscriptionService';
 
 interface ApifyDataset {
   items: any[];
@@ -35,9 +36,11 @@ interface AdvancedSearchConfig {
   timeRange: '1d' | '3d' | '7d' | '14d' | '30d';
   analysisDepth: 'basic' | 'detailed' | 'comprehensive';
   includeFullContent: boolean;
-  sourcePriority: 'all' | 'news' | 'social' | 'tech';
+  sourcePriority: 'all' | 'news' | 'social' | 'tech' | 'video';
   minEngagement: number;
   maxArticlesPerSource: number;
+  includeVideos?: boolean;
+  videoTranscription?: boolean;
 }
 
 class ScrapingService {
@@ -47,7 +50,7 @@ class ScrapingService {
 
   async scrapeAdvancedTrends(config: AdvancedSearchConfig): Promise<TrendData[]> {
     try {
-      console.log('🔍 Iniciando análise avançada...');
+      console.log('🔍 Iniciando análise avançada com vídeos...');
       console.log('🎯 Configuração:', config);
       
       if (!this.API_TOKEN || this.API_TOKEN === 'your_api_token_here' || this.FALLBACK_MODE) {
@@ -85,7 +88,9 @@ class ScrapingService {
       includeFullContent: true,
       sourcePriority: 'all',
       minEngagement: 10,
-      maxArticlesPerSource: 20
+      maxArticlesPerSource: 20,
+      includeVideos: true,
+      videoTranscription: true
     };
     
     return this.scrapeAdvancedTrends(config);
@@ -93,13 +98,10 @@ class ScrapingService {
 
   private async analyzeAdvancedTrend(keyword: string, config: AdvancedSearchConfig): Promise<TrendData> {
     const timeRangeHours = this.getTimeRangeHours(config.timeRange);
-    const sources = await Promise.allSettled([
-      this.scrapeGoogleAdvanced(keyword, config),
-      this.scrapeRedditAdvanced(keyword, config),
-      this.scrapeHackerNewsAdvanced(keyword, config),
-      this.scrapeTwitterAdvanced(keyword, config),
-      this.scrapeNewsAdvanced(keyword, config)
-    ]);
+    
+    // Definir fontes baseadas na prioridade
+    const sources = this.getSourcePromises(keyword, config);
+    const results = await Promise.allSettled(sources);
 
     const articles: Article[] = [];
     const sourceNames: string[] = [];
@@ -108,7 +110,7 @@ class ScrapingService {
     let totalVolume = 0;
     let successfulSources = 0;
 
-    sources.forEach((result, index) => {
+    results.forEach((result, index) => {
       if (result.status === 'fulfilled' && result.value) {
         articles.push(...result.value.articles);
         sourceNames.push(result.value.source);
@@ -137,6 +139,103 @@ class ScrapingService {
       articles: articles.slice(0, config.maxArticlesPerSource),
       temporalData
     };
+  }
+
+  private getSourcePromises(keyword: string, config: AdvancedSearchConfig) {
+    const promises = [];
+    
+    // Fontes tradicionais
+    if (config.sourcePriority === 'all' || config.sourcePriority === 'news') {
+      promises.push(this.scrapeGoogleAdvanced(keyword, config));
+      promises.push(this.scrapeNewsAdvanced(keyword, config));
+    }
+    
+    if (config.sourcePriority === 'all' || config.sourcePriority === 'social') {
+      promises.push(this.scrapeRedditAdvanced(keyword, config));
+      promises.push(this.scrapeTwitterAdvanced(keyword, config));
+    }
+    
+    if (config.sourcePriority === 'all' || config.sourcePriority === 'tech') {
+      promises.push(this.scrapeHackerNewsAdvanced(keyword, config));
+    }
+    
+    // Fontes de vídeo
+    if (config.includeVideos && (config.sourcePriority === 'all' || config.sourcePriority === 'video')) {
+      promises.push(this.scrapeYouTubeAdvanced(keyword, config));
+      promises.push(this.scrapeInstagramAdvanced(keyword, config));
+      promises.push(this.scrapeTikTokAdvanced(keyword, config));
+    }
+    
+    return promises;
+  }
+
+  private async scrapeYouTubeAdvanced(keyword: string, config: AdvancedSearchConfig) {
+    try {
+      console.log(`🎥 Buscando vídeos no YouTube para: "${keyword}"`);
+      
+      const maxVideos = config.analysisDepth === 'basic' ? 5 : 
+                       config.analysisDepth === 'detailed' ? 8 : 12;
+      
+      const videos = await videoTranscriptionService.searchYouTube(keyword, maxVideos);
+      const articles = videoTranscriptionService.convertVideosToArticles(videos, keyword);
+      
+      return {
+        articles,
+        source: 'YouTube',
+        score: 8 + Math.random() * 1.5, // Vídeos tendem a ter score alto
+        sentiment: 0.65 + Math.random() * 0.25,
+        volume: videos.reduce((sum, v) => sum + (v.viewCount || 0), 0) / 1000 // Converter para escala menor
+      };
+    } catch (error) {
+      console.error('Erro no YouTube:', error);
+      return this.getAdvancedFallbackData(keyword, 'YouTube', config);
+    }
+  }
+
+  private async scrapeInstagramAdvanced(keyword: string, config: AdvancedSearchConfig) {
+    try {
+      console.log(`📸 Buscando conteúdo no Instagram para: "${keyword}"`);
+      
+      const maxVideos = config.analysisDepth === 'basic' ? 4 : 
+                       config.analysisDepth === 'detailed' ? 6 : 10;
+      
+      const videos = await videoTranscriptionService.searchInstagram(keyword, maxVideos);
+      const articles = videoTranscriptionService.convertVideosToArticles(videos, keyword);
+      
+      return {
+        articles,
+        source: 'Instagram',
+        score: 7 + Math.random() * 2,
+        sentiment: 0.7 + Math.random() * 0.2, // Instagram tende a ser mais positivo
+        volume: videos.reduce((sum, v) => sum + (v.viewCount || 0), 0) / 100
+      };
+    } catch (error) {
+      console.error('Erro no Instagram:', error);
+      return this.getAdvancedFallbackData(keyword, 'Instagram', config);
+    }
+  }
+
+  private async scrapeTikTokAdvanced(keyword: string, config: AdvancedSearchConfig) {
+    try {
+      console.log(`🎵 Buscando vídeos no TikTok para: "${keyword}"`);
+      
+      const maxVideos = config.analysisDepth === 'basic' ? 4 : 
+                       config.analysisDepth === 'detailed' ? 6 : 10;
+      
+      const videos = await videoTranscriptionService.searchTikTok(keyword, maxVideos);
+      const articles = videoTranscriptionService.convertVideosToArticles(videos, keyword);
+      
+      return {
+        articles,
+        source: 'TikTok',
+        score: 7.5 + Math.random() * 1.5,
+        sentiment: 0.6 + Math.random() * 0.3,
+        volume: videos.reduce((sum, v) => sum + (v.viewCount || 0), 0) / 1000
+      };
+    } catch (error) {
+      console.error('Erro no TikTok:', error);
+      return this.getAdvancedFallbackData(keyword, 'TikTok', config);
+    }
   }
 
   private async scrapeGoogleAdvanced(keyword: string, config: AdvancedSearchConfig) {
@@ -351,8 +450,8 @@ class ScrapingService {
   }
 
   private generateAdvancedSingleFallbackTrend(keyword: string, config: AdvancedSearchConfig): TrendData {
-    const sources = this.getSourcesByPriority(config.sourcePriority);
-    const randomSources = sources.sort(() => 0.5 - Math.random()).slice(0, 4);
+    const sources = this.getSourcesByPriority(config.sourcePriority, config.includeVideos);
+    const randomSources = sources.sort(() => 0.5 - Math.random()).slice(0, 5);
     
     const articlesCount = config.maxArticlesPerSource;
     const articles = Array.from({ length: articlesCount }, (_, index) => {
@@ -413,14 +512,22 @@ class ScrapingService {
     return params[timeRange as keyof typeof params] || 'week';
   }
 
-  private getSourcesByPriority(priority: string): string[] {
+  private getSourcesByPriority(priority: string, includeVideos?: boolean): string[] {
     const sources = {
       all: ['Google', 'Reddit', 'Twitter', 'News', 'Hacker News', 'Dev.to'],
       news: ['BBC', 'TechCrunch', 'Wired', 'Reuters', 'The Verge'],
       social: ['Twitter', 'Reddit', 'LinkedIn', 'Facebook'],
-      tech: ['Hacker News', 'Dev.to', 'GitHub', 'Stack Overflow']
+      tech: ['Hacker News', 'Dev.to', 'GitHub', 'Stack Overflow'],
+      video: ['YouTube', 'Instagram', 'TikTok']
     };
-    return sources[priority as keyof typeof sources] || sources.all;
+    
+    let baseSources = sources[priority as keyof typeof sources] || sources.all;
+    
+    if (includeVideos && priority !== 'video') {
+      baseSources = [...baseSources, ...sources.video];
+    }
+    
+    return baseSources;
   }
 
   private generateFullContent(keyword: string, source: string): string {
@@ -429,7 +536,10 @@ class ScrapingService {
       reddit: `Community discussion around ${keyword} has been particularly active, with users sharing diverse perspectives and experiences. The conversation highlights both opportunities and challenges, with many contributors offering practical insights and real-world applications.`,
       hackernews: `Technical discussion about ${keyword} reveals deep insights into implementation challenges and innovative solutions. The developer community is actively exploring new approaches and sharing code examples, with particular focus on scalability and performance optimization.`,
       twitter: `Social media buzz around ${keyword} indicates growing mainstream awareness and adoption. Influencers and thought leaders are sharing opinions and predictions, creating viral conversations that reach millions of users across different demographics.`,
-      news: `Professional journalism coverage of ${keyword} provides authoritative analysis from industry experts and market researchers. The reporting includes interviews with key stakeholders, financial analysis, and regulatory considerations that impact the broader market landscape.`
+      news: `Professional journalism coverage of ${keyword} provides authoritative analysis from industry experts and market researchers. The reporting includes interviews with key stakeholders, financial analysis, and regulatory considerations that impact the broader market landscape.`,
+      youtube: `Video content analysis of ${keyword} reveals comprehensive tutorials, expert interviews, and practical demonstrations. Content creators are producing high-quality educational material that helps viewers understand complex concepts through visual storytelling and step-by-step guidance.`,
+      instagram: `Visual content about ${keyword} showcases creative applications, behind-the-scenes insights, and community engagement. Creators are using Instagram's visual platform to demonstrate concepts, share quick tips, and build communities around shared interests.`,
+      tiktok: `Short-form video content about ${keyword} demonstrates viral trends, quick tutorials, and creative interpretations. The platform's algorithm promotes engaging content that simplifies complex topics into digestible, entertaining formats that resonate with younger audiences.`
     };
     
     const baseContent = templates[source as keyof typeof templates] || templates.news;

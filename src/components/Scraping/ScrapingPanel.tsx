@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Loader, AlertCircle, TrendingUp, Globe, Zap, Brain, BarChart3, Target, Calendar, Clock, Filter, FileText, Eye, Download } from 'lucide-react';
+import { Search, Loader, AlertCircle, TrendingUp, Globe, Zap, Brain, BarChart3, Target, Calendar, Clock, Filter, FileText, Eye, Download, Video, Play, Music } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { ArticleTable } from './ArticleTable';
 import { apifyService } from '../../services/apifyService';
@@ -23,8 +23,10 @@ export const ScrapingPanel: React.FC = () => {
   const [timeRange, setTimeRange] = useState<'1d' | '3d' | '7d' | '14d' | '30d'>('7d');
   const [analysisDepth, setAnalysisDepth] = useState<'basic' | 'detailed' | 'comprehensive'>('detailed');
   const [includeFullContent, setIncludeFullContent] = useState(true);
-  const [sourcePriority, setSourcePriority] = useState<'all' | 'news' | 'social' | 'tech'>('all');
+  const [sourcePriority, setSourcePriority] = useState<'all' | 'news' | 'social' | 'tech' | 'video'>('all');
   const [minEngagement, setMinEngagement] = useState(10);
+  const [includeVideos, setIncludeVideos] = useState(true);
+  const [videoTranscription, setVideoTranscription] = useState(true);
 
   const trendingCategories = [
     {
@@ -79,17 +81,18 @@ export const ScrapingPanel: React.FC = () => {
     { 
       value: 'comprehensive', 
       label: 'Abrangente', 
-      description: 'Análise profunda + sentimentos',
+      description: 'Análise profunda + sentimentos + vídeos',
       icon: Brain,
       articles: '20-50 por fonte'
     }
   ];
 
   const sourcePriorityOptions = [
-    { value: 'all', label: 'Todas as Fontes', sources: ['Google', 'Reddit', 'Twitter', 'News', 'HN', 'Dev.to'] },
+    { value: 'all', label: 'Todas as Fontes', sources: ['Google', 'Reddit', 'Twitter', 'News', 'HN', 'YouTube', 'Instagram', 'TikTok'] },
     { value: 'news', label: 'Notícias', sources: ['BBC', 'TechCrunch', 'Wired', 'Reuters'] },
     { value: 'social', label: 'Redes Sociais', sources: ['Twitter', 'Reddit', 'LinkedIn'] },
-    { value: 'tech', label: 'Tech Communities', sources: ['Hacker News', 'Dev.to', 'GitHub'] }
+    { value: 'tech', label: 'Tech Communities', sources: ['Hacker News', 'Dev.to', 'GitHub'] },
+    { value: 'video', label: 'Plataformas de Vídeo', sources: ['YouTube', 'Instagram', 'TikTok'] }
   ];
 
   const handleAdvancedSearch = async (e: React.FormEvent) => {
@@ -100,7 +103,7 @@ export const ScrapingPanel: React.FC = () => {
     setScrapingError(null);
 
     try {
-      console.log('🚀 Iniciando análise avançada...');
+      console.log('🚀 Iniciando análise avançada com vídeos e transcrição...');
       console.log(`📊 Configurações:`, {
         keyword: searchKeyword,
         additionalKeywords: selectedKeywords,
@@ -108,7 +111,9 @@ export const ScrapingPanel: React.FC = () => {
         analysisDepth,
         includeFullContent,
         sourcePriority,
-        minEngagement
+        minEngagement,
+        includeVideos,
+        videoTranscription
       });
       
       // Configurar parâmetros avançados para o sistema
@@ -119,7 +124,9 @@ export const ScrapingPanel: React.FC = () => {
         includeFullContent,
         sourcePriority,
         minEngagement,
-        maxArticlesPerSource: analysisDepth === 'basic' ? 10 : analysisDepth === 'detailed' ? 20 : 50
+        maxArticlesPerSource: analysisDepth === 'basic' ? 10 : analysisDepth === 'detailed' ? 20 : 50,
+        includeVideos,
+        videoTranscription
       };
 
       const trends = await apifyService.scrapeAdvancedTrends(searchConfig);
@@ -131,6 +138,7 @@ export const ScrapingPanel: React.FC = () => {
       setArticles(allArticles);
       
       console.log(`✅ Análise concluída: ${allArticles.length} artigos de ${trends.length} tendências`);
+      console.log(`🎥 Vídeos incluídos: ${allArticles.filter(a => ['YouTube', 'Instagram', 'TikTok'].some(platform => a.source.includes(platform))).length}`);
       
     } catch (error) {
       console.error('❌ Erro na análise avançada:', error);
@@ -174,13 +182,16 @@ export const ScrapingPanel: React.FC = () => {
         analysisDepth,
         includeFullContent,
         sourcePriority,
-        minEngagement
+        minEngagement,
+        includeVideos,
+        videoTranscription
       },
       trends: trendData,
       articles: articles,
       summary: {
         totalArticles: articles.length,
         totalTrends: trendData.length,
+        videoArticles: articles.filter(a => ['YouTube', 'Instagram', 'TikTok'].some(platform => a.source.includes(platform))).length,
         avgScore: trendData.length > 0 ? (trendData.reduce((sum, t) => sum + t.score, 0) / trendData.length).toFixed(2) : 0,
         timeRangeAnalyzed: getTimeRangeDescription()
       }
@@ -193,6 +204,20 @@ export const ScrapingPanel: React.FC = () => {
     a.download = `analysis-${searchKeyword}-${timeRange}-${new Date().toISOString().split('T')[0]}.json`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const getVideoStats = () => {
+    const videoArticles = articles.filter(a => 
+      ['YouTube', 'Instagram', 'TikTok'].some(platform => a.source.includes(platform))
+    );
+    
+    return {
+      total: videoArticles.length,
+      youtube: videoArticles.filter(a => a.source.includes('YouTube')).length,
+      instagram: videoArticles.filter(a => a.source.includes('Instagram')).length,
+      tiktok: videoArticles.filter(a => a.source.includes('TikTok')).length,
+      withTranscript: videoArticles.filter(a => (a as any).fullContent && (a as any).fullContent.includes('Transcrição')).length
+    };
   };
 
   return (
@@ -210,10 +235,10 @@ export const ScrapingPanel: React.FC = () => {
           </div>
           <div>
             <h3 className="text-white font-inter font-semibold text-xl">
-              Scraping Pro Avançado
+              Scraping Pro Avançado com Vídeos
             </h3>
             <p className="text-gray-400 font-inter text-sm">
-              Análise temporal profunda com conteúdo completo dos artigos
+              Análise temporal profunda + transcrição de vídeos do YouTube, Instagram e TikTok
             </p>
           </div>
         </div>
@@ -251,7 +276,7 @@ export const ScrapingPanel: React.FC = () => {
                 ) : (
                   <>
                     <Search size={20} />
-                    Análise Avançada
+                    Análise Completa
                   </>
                 )}
               </motion.button>
@@ -347,8 +372,8 @@ export const ScrapingPanel: React.FC = () => {
             </div>
           </div>
 
-          {/* Additional Options */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Video and Content Options */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Full Content Toggle */}
             <div className="bg-gray-900/50 rounded-lg p-4">
               <div className="flex items-center justify-between mb-2">
@@ -376,12 +401,67 @@ export const ScrapingPanel: React.FC = () => {
               </p>
             </div>
 
+            {/* Include Videos Toggle */}
+            <div className="bg-gray-900/50 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Video size={16} className="text-red-400" />
+                  <span className="text-white font-inter font-medium text-sm">
+                    Incluir Vídeos
+                  </span>
+                </div>
+                <motion.button
+                  type="button"
+                  onClick={() => setIncludeVideos(!includeVideos)}
+                  whileTap={{ scale: 0.95 }}
+                  className={`w-12 h-6 rounded-full transition-all duration-200 ${
+                    includeVideos ? 'bg-[#1500FF]' : 'bg-gray-600'
+                  }`}
+                >
+                  <div className={`w-5 h-5 bg-white rounded-full transition-all duration-200 ${
+                    includeVideos ? 'translate-x-6' : 'translate-x-0.5'
+                  }`} />
+                </motion.button>
+              </div>
+              <p className="text-gray-400 font-inter text-xs">
+                YouTube, Instagram, TikTok
+              </p>
+            </div>
+
+            {/* Video Transcription Toggle */}
+            <div className="bg-gray-900/50 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Music size={16} className="text-purple-400" />
+                  <span className="text-white font-inter font-medium text-sm">
+                    Transcrição
+                  </span>
+                </div>
+                <motion.button
+                  type="button"
+                  onClick={() => setVideoTranscription(!videoTranscription)}
+                  whileTap={{ scale: 0.95 }}
+                  disabled={!includeVideos}
+                  className={`w-12 h-6 rounded-full transition-all duration-200 ${
+                    videoTranscription && includeVideos ? 'bg-[#1500FF]' : 'bg-gray-600'
+                  } ${!includeVideos ? 'opacity-50' : ''}`}
+                >
+                  <div className={`w-5 h-5 bg-white rounded-full transition-all duration-200 ${
+                    videoTranscription && includeVideos ? 'translate-x-6' : 'translate-x-0.5'
+                  }`} />
+                </motion.button>
+              </div>
+              <p className="text-gray-400 font-inter text-xs">
+                Converter áudio em texto
+              </p>
+            </div>
+
             {/* Source Priority */}
             <div className="bg-gray-900/50 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
                 <Globe size={16} className="text-blue-400" />
                 <span className="text-white font-inter font-medium text-sm">
-                  Prioridade de Fontes
+                  Prioridade
                 </span>
               </div>
               <select
@@ -397,29 +477,29 @@ export const ScrapingPanel: React.FC = () => {
                 ))}
               </select>
             </div>
+          </div>
 
-            {/* Min Engagement */}
-            <div className="bg-gray-900/50 rounded-lg p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <TrendingUp size={16} className="text-yellow-400" />
-                <span className="text-white font-inter font-medium text-sm">
-                  Engajamento Mínimo
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="range"
-                  min="1"
-                  max="100"
-                  value={minEngagement}
-                  onChange={(e) => setMinEngagement(parseInt(e.target.value))}
-                  disabled={isAnalyzing}
-                  className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
-                />
-                <span className="text-white font-inter text-sm min-w-[3rem]">
-                  {minEngagement}
-                </span>
-              </div>
+          {/* Min Engagement Slider */}
+          <div className="bg-gray-900/50 rounded-lg p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <TrendingUp size={16} className="text-yellow-400" />
+              <span className="text-white font-inter font-medium text-sm">
+                Engajamento Mínimo: {minEngagement}
+              </span>
+            </div>
+            <div className="flex items-center gap-4">
+              <input
+                type="range"
+                min="1"
+                max="100"
+                value={minEngagement}
+                onChange={(e) => setMinEngagement(parseInt(e.target.value))}
+                disabled={isAnalyzing}
+                className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
+              />
+              <span className="text-gray-400 font-inter text-xs">
+                Filtrar conteúdo com baixo engajamento
+              </span>
             </div>
           </div>
 
@@ -520,20 +600,20 @@ export const ScrapingPanel: React.FC = () => {
                 <span>Hacker News</span>
               </div>
               <div className="flex items-center gap-1">
-                <Zap size={12} />
-                <span>News Sites</span>
+                <Play size={12} />
+                <span>YouTube</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Video size={12} />
+                <span>Instagram</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Music size={12} />
+                <span>TikTok</span>
               </div>
               <div className="flex items-center gap-1">
                 <Brain size={12} />
-                <span>IA Analysis</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <BarChart3 size={12} />
-                <span>Sentiment</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <Clock size={12} />
-                <span>Temporal Analysis</span>
+                <span>Transcrição IA</span>
               </div>
             </div>
           </div>
@@ -558,16 +638,16 @@ export const ScrapingPanel: React.FC = () => {
           >
             <Loader size={16} className="animate-spin" />
             <div>
-              <div className="font-medium">Processamento Avançado...</div>
+              <div className="font-medium">Processamento Avançado com Vídeos...</div>
               <div className="text-xs text-gray-400 mt-1">
-                Coletando conteúdo completo • Análise temporal {getTimeRangeDescription()} • {getAnalysisDescription()}
+                Coletando conteúdo completo • Análise temporal {getTimeRangeDescription()} • {getAnalysisDescription()} • Transcrevendo vídeos
               </div>
             </div>
           </motion.div>
         )}
       </motion.form>
 
-      {/* Advanced Trend Analysis */}
+      {/* Advanced Trend Analysis with Video Stats */}
       {trendData.length > 0 && (
         <motion.div
           initial={{ y: 20, opacity: 0 }}
@@ -576,7 +656,7 @@ export const ScrapingPanel: React.FC = () => {
         >
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-white font-inter font-semibold text-lg">
-              📊 Análise Temporal Avançada
+              📊 Análise Temporal Avançada com Vídeos
             </h3>
             <div className="text-gray-400 font-inter text-sm">
               Período: {getTimeRangeDescription()} • {getAnalysisDescription()}
@@ -618,10 +698,12 @@ export const ScrapingPanel: React.FC = () => {
                       {trend.articles.length}
                     </span>
                   </div>
-                  {includeFullContent && (
+                  {includeVideos && (
                     <div className="flex justify-between">
-                      <span className="text-gray-400">Conteúdo:</span>
-                      <span className="text-green-400">Completo</span>
+                      <span className="text-gray-400">Vídeos:</span>
+                      <span className="text-purple-400">
+                        {trend.articles.filter(a => ['YouTube', 'Instagram', 'TikTok'].some(platform => a.source.includes(platform))).length}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -647,6 +729,68 @@ export const ScrapingPanel: React.FC = () => {
               </div>
             ))}
           </div>
+
+          {/* Video Statistics */}
+          {includeVideos && (() => {
+            const videoStats = getVideoStats();
+            return (
+              <div className="bg-purple-900/20 border border-purple-800 rounded-lg p-4 mb-6">
+                <div className="flex items-center gap-2 mb-3">
+                  <Video size={16} className="text-purple-400" />
+                  <h4 className="text-purple-400 font-inter font-semibold text-sm">
+                    Estatísticas de Vídeos
+                  </h4>
+                </div>
+                
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
+                  <div>
+                    <div className="text-purple-400 font-inter font-bold text-lg">
+                      {videoStats.total}
+                    </div>
+                    <div className="text-gray-400 font-inter text-xs">
+                      Total de Vídeos
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <div className="text-red-400 font-inter font-bold text-lg">
+                      {videoStats.youtube}
+                    </div>
+                    <div className="text-gray-400 font-inter text-xs">
+                      YouTube
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <div className="text-pink-400 font-inter font-bold text-lg">
+                      {videoStats.instagram}
+                    </div>
+                    <div className="text-gray-400 font-inter text-xs">
+                      Instagram
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <div className="text-cyan-400 font-inter font-bold text-lg">
+                      {videoStats.tiktok}
+                    </div>
+                    <div className="text-gray-400 font-inter text-xs">
+                      TikTok
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <div className="text-green-400 font-inter font-bold text-lg">
+                      {videoStats.withTranscript}
+                    </div>
+                    <div className="text-gray-400 font-inter text-xs">
+                      Com Transcrição
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
 
           <div className="bg-[#1500FF]/10 border border-[#1500FF]/20 rounded-lg p-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
@@ -711,21 +855,22 @@ export const ScrapingPanel: React.FC = () => {
           <div className="relative inline-block">
             <BarChart3 size={64} className="text-gray-600 mx-auto mb-6" />
             <div className="absolute -top-2 -right-2 w-6 h-6 bg-[#1500FF] rounded-full flex items-center justify-center">
-              <Clock size={12} className="text-white" />
+              <Video size={12} className="text-white" />
             </div>
           </div>
           <h3 className="text-white font-inter font-semibold text-xl mb-3">
-            Scraping Pro Avançado com Análise Temporal
+            Scraping Pro Avançado com Transcrição de Vídeos
           </h3>
           <p className="text-gray-400 font-inter text-lg mb-6">
-            Análise profunda de tendências com conteúdo completo
+            Análise profunda de tendências com conteúdo completo + vídeos transcritos
           </p>
           <div className="text-gray-500 font-inter text-sm space-y-1">
             <p>🔍 Scraping de múltiplas fontes com análise temporal</p>
             <p>📄 Extração de conteúdo completo dos artigos</p>
+            <p>🎥 Busca e transcrição de vídeos do YouTube, Instagram e TikTok</p>
             <p>🧠 Análise de sentimentos e predições com IA</p>
             <p>📊 Configuração flexível de período e profundidade</p>
-            <p>⚡ Dados de Google, Twitter, Reddit, News e mais</p>
+            <p>⚡ Dados de Google, Twitter, Reddit, News e plataformas de vídeo</p>
           </div>
         </motion.div>
       )}
