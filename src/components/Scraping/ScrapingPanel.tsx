@@ -13,7 +13,8 @@ export const ScrapingPanel: React.FC = () => {
     isScrapingLoading,
     setScrapingError,
     scrapingError,
-    articles
+    articles,
+    startScraping
   } = useAppStore();
 
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);

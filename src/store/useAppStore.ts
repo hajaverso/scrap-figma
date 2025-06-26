@@ -52,10 +52,10 @@ interface AppState {
   setArticles: (articles: Article[]) => void;
   toggleArticleSelection: (article: Article) => void;
   clearSelectedArticles: () => void;
-  startScraping: () => void;
+  startScraping: () => Promise<void>;
   setScrapingError: (error: string | null) => void;
   
-  generateCarousel: (prompt: string, style?: 'modern' | 'minimal' | 'bold' | 'elegant', useAI?: boolean, cardCount?: number, language?: 'pt' | 'en' | 'es') => void;
+  generateCarousel: (prompt: string, style?: 'modern' | 'minimal' | 'bold' | 'elegant', useAI?: boolean, cardCount?: number, language?: 'pt' | 'en' | 'es') => Promise<void>;
   setCarouselCards: (cards: CarouselCard[]) => void;
   addGeneratedCarousel: (carousel: CarouselCard[]) => void;
   setCurrentEditingCarousel: (carousel: CarouselCard[] | null) => void;
