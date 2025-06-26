@@ -73,6 +73,74 @@ class ScrapingService {
     return ttlMap[timeRange as keyof typeof ttlMap] || 12 * 60 * 60 * 1000;
   }
 
+  private generateAdvancedFallbackTrends = async (config: AdvancedSearchConfig): Promise<TrendData[]> => {
+    console.log('🎲 Gerando dados simulados avançados...');
+    
+    const fallbackTrends: TrendData[] = [];
+    
+    for (const keyword of config.keywords) {
+      const baseScore = Math.random() * 100;
+      const sentiment = (Math.random() - 0.5) * 2; // -1 to 1
+      const volume = Math.floor(Math.random() * 10000) + 100;
+      const growth = (Math.random() - 0.5) * 200; // -100% to 100%
+      
+      // Generate sample articles
+      const articles: Article[] = [];
+      const numArticles = Math.min(config.maxArticlesPerSource, Math.floor(Math.random() * 15) + 5);
+      
+      for (let i = 0; i < numArticles; i++) {
+        articles.push({
+          id: `fallback-${keyword}-${i}`,
+          title: `${keyword} - Artigo de Exemplo ${i + 1}`,
+          url: `https://example.com/article-${keyword}-${i}`,
+          source: ['TechCrunch', 'Wired', 'The Verge', 'Ars Technica', 'Engadget'][Math.floor(Math.random() * 5)],
+          publishedAt: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
+          snippet: `Este é um artigo de exemplo sobre ${keyword}. Conteúdo simulado para demonstração.`,
+          engagement: Math.floor(Math.random() * 1000) + config.minEngagement,
+          sentiment: sentiment,
+          relevanceScore: baseScore + (Math.random() - 0.5) * 20
+        });
+      }
+      
+      // Generate temporal data
+      const dailyVolume = Array.from({ length: 30 }, () => Math.floor(Math.random() * 1000) + 50);
+      const weeklyGrowth = growth;
+      const peakDays = ['Monday', 'Wednesday', 'Friday'].slice(0, Math.floor(Math.random() * 3) + 1);
+      const trendDirection: 'rising' | 'falling' | 'stable' = 
+        growth > 20 ? 'rising' : growth < -20 ? 'falling' : 'stable';
+      
+      fallbackTrends.push({
+        keyword,
+        score: baseScore,
+        sentiment,
+        volume,
+        growth,
+        sources: [...new Set(articles.map(a => a.source))],
+        articles,
+        temporalData: {
+          dailyVolume,
+          weeklyGrowth,
+          peakDays,
+          trendDirection
+        }
+      });
+    }
+    
+    console.log(`✅ Gerados ${fallbackTrends.length} trends simulados`);
+    return fallbackTrends;
+  };
+
+  private async analyzeAdvancedTrend(keyword: string, config: AdvancedSearchConfig): Promise<TrendData> {
+    // This method would contain the actual API logic
+    // For now, return a single trend using the fallback method
+    const fallbackData = await this.generateAdvancedFallbackTrends({
+      ...config,
+      keywords: [keyword]
+    });
+    
+    return fallbackData[0];
+  }
+
   async scrapeAdvancedTrends(config: AdvancedSearchConfig): Promise<TrendData[]> {
     try {
       console.log('🔍 Iniciando análise avançada com cache...');
@@ -227,8 +295,6 @@ class ScrapingService {
     }
     return `${minutes}m`;
   }
-
-  // ... resto dos métodos permanecem inalterados ...
 }
 
 export const apifyService = new ScrapingService();
