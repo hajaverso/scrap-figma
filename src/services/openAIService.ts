@@ -60,7 +60,7 @@ class OpenAIService {
   }
 
   /**
-   * Avalia o potencial de viralização de um artigo no Instagram usando GPT-4
+   * Avalia o potencial de viralização de um artigo no Instagram usando GPT-3.5-turbo
    * @param title - Título do artigo
    * @param summary - Resumo/descrição do artigo
    * @param url - URL do artigo
@@ -111,7 +111,7 @@ Considere:
 Retorne apenas o score de 0 a 10:`;
 
       const completion = await this.openai.chat.completions.create({
-        model: 'gpt-4',
+        model: 'gpt-3.5-turbo',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
