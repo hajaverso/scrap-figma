@@ -67,7 +67,7 @@ export const CarouselGenerator: React.FC = () => {
     }
   ];
 
-  const handleGenerate = (e: React.FormEvent) => {
+  const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!isAIEnabled) {
@@ -75,8 +75,22 @@ export const CarouselGenerator: React.FC = () => {
       return;
     }
 
-    const fullPrompt = `${prompt} | Estilo: ${selectedStyle} | Idioma: ${selectedLanguage} | Cards: ${cardCount}`;
-    generateCarousel(fullPrompt, selectedStyle, isAIEnabled, cardCount, selectedLanguage);
+    // Verificar se temos artigos suficientes
+    if (selectedArticles.length === 0) {
+      alert('Selecione pelo menos um artigo para gerar o carrossel');
+      return;
+    }
+
+    // Ajustar cardCount se necessário
+    const actualCardCount = Math.min(cardCount, selectedArticles.length);
+    
+    console.log(`🎨 Iniciando geração de ${actualCardCount} cards`);
+    console.log(`📝 Prompt: "${prompt}"`);
+    console.log(`🎯 Estilo: ${selectedStyle}, Idioma: ${selectedLanguage}`);
+    console.log(`📚 Artigos disponíveis: ${selectedArticles.length}`);
+
+    const fullPrompt = `${prompt} | Estilo: ${selectedStyle} | Idioma: ${selectedLanguage} | Cards: ${actualCardCount}`;
+    await generateCarousel(fullPrompt, selectedStyle, isAIEnabled, actualCardCount, selectedLanguage);
   };
 
   const handleAPIKeySaved = () => {
@@ -84,13 +98,11 @@ export const CarouselGenerator: React.FC = () => {
   };
 
   const handleExportToFigma = () => {
-    // Simular exportação para Figma
     const figmaUrl = 'https://www.figma.com/files/recent?fuid_redirect=1';
     window.open(figmaUrl, '_blank');
   };
 
   const handleExportToCanva = () => {
-    // Simular exportação para Canva
     const canvaUrl = 'https://www.canva.com/create/instagram-stories/';
     window.open(canvaUrl, '_blank');
   };
@@ -245,19 +257,19 @@ export const CarouselGenerator: React.FC = () => {
           <div>
             <label className="block text-gray-300 font-inter font-medium text-sm mb-3">
               <Hash size={16} className="inline mr-2" />
-              Quantidade de Cards (máx. 10)
+              Quantidade de Cards (máx. {selectedArticles.length})
             </label>
             
             <div className="flex items-center gap-4">
               <input
                 type="range"
                 min="1"
-                max="10"
+                max={Math.min(10, selectedArticles.length)}
                 value={cardCount}
                 onChange={(e) => setCardCount(parseInt(e.target.value))}
                 className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
                 style={{
-                  background: `linear-gradient(to right, #1500FF 0%, #1500FF ${(cardCount / 10) * 100}%, #374151 ${(cardCount / 10) * 100}%, #374151 100%)`
+                  background: `linear-gradient(to right, #1500FF 0%, #1500FF ${(cardCount / Math.min(10, selectedArticles.length)) * 100}%, #374151 ${(cardCount / Math.min(10, selectedArticles.length)) * 100}%, #374151 100%)`
                 }}
               />
               
@@ -267,7 +279,7 @@ export const CarouselGenerator: React.FC = () => {
             </div>
             
             <p className="text-gray-500 font-inter text-xs mt-2">
-              Recomendamos 5-7 cards para melhor engajamento
+              Você tem {selectedArticles.length} artigos selecionados
             </p>
           </div>
         </div>
@@ -346,7 +358,7 @@ export const CarouselGenerator: React.FC = () => {
         {/* Generate Button */}
         <motion.button
           type="submit"
-          disabled={isGeneratingCarousel}
+          disabled={isGeneratingCarousel || selectedArticles.length === 0}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           className="w-full bg-[#1500FF] text-white py-4 rounded-lg font-inter font-semibold flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:bg-blue-600"
@@ -359,7 +371,7 @@ export const CarouselGenerator: React.FC = () => {
           ) : (
             <>
               {isAIEnabled ? <Brain size={20} /> : <Sparkles size={20} />}
-              Gerar Carrossel ({cardCount} cards)
+              Gerar Carrossel ({Math.min(cardCount, selectedArticles.length)} cards)
             </>
           )}
         </motion.button>
@@ -377,7 +389,7 @@ export const CarouselGenerator: React.FC = () => {
       </motion.form>
 
       {/* Carousel Preview */}
-      {lastGeneratedCarousel && (
+      {lastGeneratedCarousel && lastGeneratedCarousel.length > 0 && (
         <motion.div
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}

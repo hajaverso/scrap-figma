@@ -144,13 +144,20 @@ export const useAppStore = create<AppState>((set, get) => ({
   
   generateCarousel: async (prompt, style = 'modern', useAI = false, cardCount = 5, language = 'pt') => {
     const { selectedArticles } = get();
-    if (selectedArticles.length === 0) return;
+    if (selectedArticles.length === 0) {
+      set({ generationError: 'Nenhum artigo selecionado' });
+      return;
+    }
     
     set({ isGeneratingCarousel: true, generationError: null });
     
     try {
-      console.log(`🎨 Gerando carrossel com ${cardCount} cards`);
+      // Garantir que não tentamos gerar mais cards do que artigos disponíveis
+      const actualCardCount = Math.min(cardCount, selectedArticles.length);
+      
+      console.log(`🎨 Gerando carrossel com ${actualCardCount} cards`);
       console.log(`🎯 Estilo: ${style}, IA: ${useAI ? 'Habilitada' : 'Desabilitada'}, Idioma: ${language}`);
+      console.log(`📚 Artigos selecionados: ${selectedArticles.length}`);
       
       let generatedCards: CarouselCard[];
 
@@ -158,39 +165,143 @@ export const useAppStore = create<AppState>((set, get) => ({
         // Geração com IA
         console.log('🧠 Usando OpenAI para geração inteligente...');
         generatedCards = await openAIService.generateCarouselCards({
-          articles: selectedArticles.slice(0, cardCount),
+          articles: selectedArticles.slice(0, actualCardCount),
           style,
           customPrompt: prompt,
-          cardCount,
+          cardCount: actualCardCount,
           language
         });
       } else {
-        // Geração básica
+        // Geração básica melhorada
         console.log('⚡ Usando geração básica...');
         await new Promise(resolve => setTimeout(resolve, 2000));
         
-        const colorPalettes = [
-          { primary: '#1500FF', secondary: '#6366F1', text: '#FFFFFF', background: '#111111' },
-          { primary: '#EF4444', secondary: '#F97316', text: '#FFFFFF', background: '#1A1A1A' },
-          { primary: '#22C55E', secondary: '#10B981', text: '#FFFFFF', background: '#0F172A' },
-          { primary: '#8B5CF6', secondary: '#A855F7', text: '#FFFFFF', background: '#1F1B2E' },
-          { primary: '#F59E0B', secondary: '#D97706', text: '#1F2937', background: '#FEF3C7' },
-          { primary: '#06B6D4', secondary: '#0891B2', text: '#FFFFFF', background: '#0C4A6E' },
-          { primary: '#EC4899', secondary: '#DB2777', text: '#FFFFFF', background: '#831843' },
-          { primary: '#84CC16', secondary: '#65A30D', text: '#1F2937', background: '#F7FEE7' },
-          { primary: '#6366F1', secondary: '#4F46E5', text: '#FFFFFF', background: '#1E1B4B' },
-          { primary: '#DC2626', secondary: '#B91C1C', text: '#FFFFFF', background: '#450A0A' }
-        ];
+        const colorPalettes = {
+          modern: [
+            { primary: '#1500FF', secondary: '#6366F1', text: '#FFFFFF', background: '#111111' },
+            { primary: '#8B5CF6', secondary: '#A855F7', text: '#FFFFFF', background: '#1F1B2E' },
+            { primary: '#06B6D4', secondary: '#0891B2', text: '#FFFFFF', background: '#0C4A6E' },
+            { primary: '#EC4899', secondary: '#DB2777', text: '#FFFFFF', background: '#831843' },
+            { primary: '#F59E0B', secondary: '#D97706', text: '#FFFFFF', background: '#451A03' }
+          ],
+          minimal: [
+            { primary: '#000000', secondary: '#374151', text: '#1F2937', background: '#FFFFFF' },
+            { primary: '#374151', secondary: '#6B7280', text: '#1F2937', background: '#F9FAFB' },
+            { primary: '#1F2937', secondary: '#4B5563', text: '#111827', background: '#F3F4F6' },
+            { primary: '#6B7280', secondary: '#9CA3AF', text: '#374151', background: '#FFFFFF' },
+            { primary: '#111827', secondary: '#1F2937', text: '#374151', background: '#F9FAFB' }
+          ],
+          bold: [
+            { primary: '#EF4444', secondary: '#F97316', text: '#FFFFFF', background: '#000000' },
+            { primary: '#DC2626', secondary: '#EA580C', text: '#FFFFFF', background: '#1A1A1A' },
+            { primary: '#B91C1C', secondary: '#C2410C', text: '#FFFFFF', background: '#0A0A0A' },
+            { primary: '#991B1B', secondary: '#9A3412', text: '#FFFFFF', background: '#1F1F1F' },
+            { primary: '#7F1D1D', secondary: '#7C2D12', text: '#FFFFFF', background: '#111111' }
+          ],
+          elegant: [
+            { primary: '#1F2937', secondary: '#D4A574', text: '#374151', background: '#F9FAFB' },
+            { primary: '#374151', secondary: '#F3E8D0', text: '#1F2937', background: '#FEFEFE' },
+            { primary: '#4B5563', secondary: '#E5D5B7', text: '#1F2937', background: '#F8F9FA' },
+            { primary: '#6B7280', secondary: '#D6C7A8', text: '#374151', background: '#FFFFFF' },
+            { primary: '#9CA3AF', secondary: '#C8B99C', text: '#4B5563', background: '#F9FAFB' }
+          ]
+        };
+
+        const stylePalettes = colorPalettes[style];
         
-        generatedCards = selectedArticles.slice(0, cardCount).map((article, index) => {
-          const palette = colorPalettes[index % colorPalettes.length];
+        // Gerar títulos e descrições personalizados baseados no prompt e idioma
+        const generateContent = (article: Article, index: number) => {
+          const templates = {
+            pt: {
+              titles: [
+                `${article.title.split(' ').slice(0, 4).join(' ')}`,
+                `Descubra: ${article.title.split(' ').slice(0, 3).join(' ')}`,
+                `Tendência: ${article.title.split(' ').slice(0, 3).join(' ')}`,
+                `Novidade: ${article.title.split(' ').slice(0, 3).join(' ')}`,
+                `${article.title.split(' ').slice(0, 4).join(' ')} em Foco`
+              ],
+              subtitles: [
+                `${article.source} • Tendência`,
+                `Análise Exclusiva • ${article.source}`,
+                `Insights • ${new Date(article.publishDate).toLocaleDateString('pt-BR')}`,
+                `${article.source} • Destaque`,
+                `Reportagem • ${article.source}`
+              ],
+              descriptions: [
+                `Análise completa sobre ${article.keywords[0] || 'esta tendência'} e seu impacto no mercado atual.`,
+                `Descubra as principais insights e oportunidades desta nova tendência em destaque.`,
+                `Entenda como ${article.keywords[0] || 'esta inovação'} está transformando o setor.`,
+                `Guia completo com tudo que você precisa saber sobre esta tendência emergente.`,
+                `Análise detalhada dos fatores que tornam esta tendência tão relevante hoje.`
+              ]
+            },
+            en: {
+              titles: [
+                `${article.title.split(' ').slice(0, 4).join(' ')}`,
+                `Discover: ${article.title.split(' ').slice(0, 3).join(' ')}`,
+                `Trending: ${article.title.split(' ').slice(0, 3).join(' ')}`,
+                `Breaking: ${article.title.split(' ').slice(0, 3).join(' ')}`,
+                `${article.title.split(' ').slice(0, 4).join(' ')} Spotlight`
+              ],
+              subtitles: [
+                `${article.source} • Trending`,
+                `Exclusive Analysis • ${article.source}`,
+                `Insights • ${new Date(article.publishDate).toLocaleDateString('en-US')}`,
+                `${article.source} • Featured`,
+                `Report • ${article.source}`
+              ],
+              descriptions: [
+                `Complete analysis of ${article.keywords[0] || 'this trend'} and its market impact.`,
+                `Discover key insights and opportunities from this trending topic.`,
+                `Understand how ${article.keywords[0] || 'this innovation'} is transforming the industry.`,
+                `Complete guide with everything you need to know about this emerging trend.`,
+                `Detailed analysis of factors making this trend so relevant today.`
+              ]
+            },
+            es: {
+              titles: [
+                `${article.title.split(' ').slice(0, 4).join(' ')}`,
+                `Descubre: ${article.title.split(' ').slice(0, 3).join(' ')}`,
+                `Tendencia: ${article.title.split(' ').slice(0, 3).join(' ')}`,
+                `Novedad: ${article.title.split(' ').slice(0, 3).join(' ')}`,
+                `${article.title.split(' ').slice(0, 4).join(' ')} en Foco`
+              ],
+              subtitles: [
+                `${article.source} • Tendencia`,
+                `Análisis Exclusivo • ${article.source}`,
+                `Insights • ${new Date(article.publishDate).toLocaleDateString('es-ES')}`,
+                `${article.source} • Destacado`,
+                `Reportaje • ${article.source}`
+              ],
+              descriptions: [
+                `Análisis completo sobre ${article.keywords[0] || 'esta tendencia'} y su impacto en el mercado.`,
+                `Descubre las principales insights y oportunidades de esta tendencia destacada.`,
+                `Entiende cómo ${article.keywords[0] || 'esta innovación'} está transformando el sector.`,
+                `Guía completa con todo lo que necesitas saber sobre esta tendencia emergente.`,
+                `Análisis detallado de los factores que hacen esta tendencia tan relevante hoy.`
+              ]
+            }
+          };
+
+          const langTemplates = templates[language];
+          
+          return {
+            title: langTemplates.titles[index % langTemplates.titles.length],
+            subtitle: langTemplates.subtitles[index % langTemplates.subtitles.length],
+            description: langTemplates.descriptions[index % langTemplates.descriptions.length]
+          };
+        };
+        
+        generatedCards = selectedArticles.slice(0, actualCardCount).map((article, index) => {
+          const palette = stylePalettes[index % stylePalettes.length];
+          const content = generateContent(article, index);
           const cardId = `card-${Date.now()}-${index}`;
           
           return {
             id: cardId,
-            title: article.title.length > 60 ? article.title.substring(0, 57) + '...' : article.title,
-            subtitle: `${article.source} • ${new Date(article.publishDate).toLocaleDateString(language === 'pt' ? 'pt-BR' : language === 'en' ? 'en-US' : 'es-ES')}`,
-            description: article.description.length > 150 ? article.description.substring(0, 147) + '...' : article.description,
+            title: content.title.length > 60 ? content.title.substring(0, 57) + '...' : content.title,
+            subtitle: content.subtitle,
+            description: content.description.length > 150 ? content.description.substring(0, 147) + '...' : content.description,
             imageUrl: article.imageUrl,
             style: style,
             colors: palette
@@ -198,14 +309,14 @@ export const useAppStore = create<AppState>((set, get) => ({
         });
       }
       
+      console.log(`✅ Carrossel gerado com ${generatedCards.length} cards!`);
+      
       get().addGeneratedCarousel(generatedCards);
       set({ 
         isGeneratingCarousel: false,
         currentEditingCarousel: generatedCards,
-        activeTab: 'editor' // Ir direto para o editor
+        generationError: null
       });
-      
-      console.log(`✅ Carrossel gerado com sucesso! (${useAI ? 'com IA' : 'básico'})`);
       
     } catch (error) {
       console.error('❌ Erro na geração:', error);
