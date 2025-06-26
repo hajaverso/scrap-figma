@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Search, Layers, Eye, Menu, X, BarChart3, Edit3 } from 'lucide-react';
+import { Search, Layers, Eye, Menu, X, BarChart3, Edit3, Brain } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 
 export const Sidebar: React.FC = () => {
@@ -10,6 +10,7 @@ export const Sidebar: React.FC = () => {
     { id: 'dashboard', label: 'Analytics', icon: BarChart3 },
     { id: 'scraping', label: 'Scraping Pro', icon: Search },
     { id: 'carousel', label: 'Gerador IA', icon: Layers },
+    { id: 'ia-generator', label: 'IA Generator', icon: Brain },
     { id: 'editor', label: 'Editor Canvas', icon: Edit3 },
     { id: 'preview', label: 'Preview & Export', icon: Eye }
   ];
@@ -65,6 +66,12 @@ export const Sidebar: React.FC = () => {
                   {/* Status indicators */}
                   {item.id === 'dashboard' && (
                     <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                  )}
+                  
+                  {item.id === 'ia-generator' && (
+                    <div className="bg-purple-500 text-white px-2 py-1 rounded-full text-xs font-bold">
+                      AI
+                    </div>
                   )}
                   
                   {item.id === 'editor' && generatedCarousels.length > 0 && (

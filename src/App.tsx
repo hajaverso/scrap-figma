@@ -7,6 +7,7 @@ import { CarouselGenerator } from './components/Carousel/CarouselGenerator';
 import { CarouselEditor } from './components/Editor/CarouselEditor';
 import { CarouselPreview } from './components/Preview/CarouselPreview';
 import { TrendsDashboard } from './components/Dashboard/TrendsDashboard';
+import { IAGeneratorPanel } from './components/IAGenerator/IAGeneratorPanel';
 import { useAppStore } from './store/useAppStore';
 
 function App() {
@@ -20,6 +21,8 @@ function App() {
         return <ScrapingPanel />;
       case 'carousel':
         return <CarouselGenerator />;
+      case 'ia-generator':
+        return <IAGeneratorPanel />;
       case 'editor':
         return <CarouselEditor />;
       case 'preview':

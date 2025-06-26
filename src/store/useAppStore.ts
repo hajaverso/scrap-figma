@@ -47,7 +47,7 @@ interface AppState {
   generationError: string | null;
   
   // UI State
-  activeTab: 'dashboard' | 'scraping' | 'carousel' | 'editor' | 'preview';
+  activeTab: 'dashboard' | 'scraping' | 'carousel' | 'ia-generator' | 'editor' | 'preview';
   sidebarOpen: boolean;
   
   // Actions
@@ -64,7 +64,7 @@ interface AppState {
   setCurrentEditingCarousel: (carousel: CarouselCard[] | null) => void;
   updateCarouselCard: (index: number, updatedCard: CarouselCard) => void;
   
-  setActiveTab: (tab: 'dashboard' | 'scraping' | 'carousel' | 'editor' | 'preview') => void;
+  setActiveTab: (tab: 'dashboard' | 'scraping' | 'carousel' | 'ia-generator' | 'editor' | 'preview') => void;
   toggleSidebar: () => void;
 }
 

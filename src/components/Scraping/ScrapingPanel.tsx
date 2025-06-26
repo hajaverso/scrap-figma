@@ -1,24 +1,13 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Loader, AlertCircle, TrendingUp, Globe, Zap, Brain, BarChart3, Target, Calendar, Clock, Filter, FileText, Eye, Download, Video, Play, Music, Settings, Plus, Image, Type } from 'lucide-react';
+import { Search, Loader, AlertCircle, TrendingUp, Globe, Zap, Brain, BarChart3, Target, Calendar, Clock, Filter, FileText, Eye, Download, Video, Play, Music, Settings, ExternalLink, Image, Film, Type, CheckCircle } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { ArticleTable } from './ArticleTable';
 import { apifyService } from '../../services/apifyService';
 import { apiConfigService } from '../../services/apiConfigService';
 import { APIWarning } from '../Common/APIWarning';
 import { APISettingsModal } from '../Settings/APISettingsModal';
-
-interface ScrapedArticle {
-  url: string;
-  title: string;
-  text: string;
-  images: string[];
-  videos: string[];
-  extractedAt: string;
-  textLength: number;
-  imageCount: number;
-  videoCount: number;
-}
+import { useIAGeneratorStore } from '../../store/iaGeneratorStore';
 
 export const ScrapingPanel: React.FC = () => {
   const {
@@ -32,6 +21,8 @@ export const ScrapingPanel: React.FC = () => {
     startScraping
   } = useAppStore();
 
+  const { setSelectedArticle } = useIAGeneratorStore();
+
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
   const [trendData, setTrendData] = useState<any[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -44,11 +35,11 @@ export const ScrapingPanel: React.FC = () => {
   const [videoTranscription, setVideoTranscription] = useState(true);
   const [showAPISettings, setShowAPISettings] = useState(false);
 
-  // Novos estados para scraping de URL específica
+  // Estados para Scraping Direto de URL
   const [scrapingUrl, setScrapingUrl] = useState('');
-  const [scrapedArticles, setScrapedArticles] = useState<ScrapedArticle[]>([]);
+  const [scrapedArticles, setScrapedArticles] = useState<any[]>([]);
   const [isScrapingUrl, setIsScrapingUrl] = useState(false);
-  const [scrapingUrlError, setScrapingUrlError] = useState<string | null>(null);
+  const [urlScrapingError, setUrlScrapingError] = useState<string | null>(null);
 
   // Verificar APIs configuradas
   const requiredAPIs = ['apifyKey', 'serpApiKey'] as const;
@@ -181,127 +172,6 @@ export const ScrapingPanel: React.FC = () => {
     }
   };
 
-  // Nova função para scraping de URL específica
-  const handleUrlScraping = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!scrapingUrl.trim()) return;
-
-    // Validar URL
-    try {
-      new URL(scrapingUrl);
-    } catch {
-      setScrapingUrlError('URL inválida. Digite uma URL completa (ex: https://example.com)');
-      return;
-    }
-
-    setIsScrapingUrl(true);
-    setScrapingUrlError(null);
-    setScrapedArticles([]);
-
-    try {
-      console.log(`🔍 Iniciando scraping da URL: ${scrapingUrl}`);
-      
-      // Simular chamada ao apifyService.runScraping(url)
-      // Em produção, esta seria a chamada real
-      const scrapingResult = await simulateApifyRunScraping(scrapingUrl);
-      
-      if (!scrapingResult || scrapingResult.length === 0) {
-        throw new Error('Nenhum conteúdo encontrado na URL fornecida');
-      }
-      
-      setScrapedArticles(scrapingResult);
-      console.log(`✅ Scraping concluído: ${scrapingResult.length} artigos extraídos`);
-      
-    } catch (error) {
-      console.error('❌ Erro no scraping da URL:', error);
-      setScrapingUrlError(error instanceof Error ? error.message : 'Erro ao fazer scraping da URL');
-    } finally {
-      setIsScrapingUrl(false);
-    }
-  };
-
-  // Função simulada para apifyService.runScraping(url)
-  const simulateApifyRunScraping = async (url: string): Promise<ScrapedArticle[]> => {
-    // Simular delay de processamento
-    await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 3000));
-    
-    // Simular dados extraídos
-    const mockArticles: ScrapedArticle[] = [
-      {
-        url: url,
-        title: 'Artigo Principal Extraído da Página',
-        text: 'Este é o conteúdo completo extraído da página. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.',
-        images: [
-          'https://images.pexels.com/photos/3184431/pexels-photo-3184431.jpeg?w=400',
-          'https://images.pexels.com/photos/577585/pexels-photo-577585.jpeg?w=400',
-          'https://images.pexels.com/photos/374918/pexels-photo-374918.jpeg?w=400'
-        ],
-        videos: [
-          'https://example.com/video1.mp4',
-          'https://youtube.com/embed/example'
-        ],
-        extractedAt: new Date().toISOString(),
-        textLength: 850,
-        imageCount: 3,
-        videoCount: 2
-      },
-      {
-        url: url,
-        title: 'Segundo Artigo Encontrado na Página',
-        text: 'Conteúdo adicional extraído da mesma página. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Vestibulum tortor quam, feugiat vitae, ultricies eget, tempor sit amet, ante. Donec eu libero sit amet quam egestas semper. Aenean ultricies mi vitae est. Mauris placerat eleifend leo.',
-        images: [
-          'https://images.pexels.com/photos/1181359/pexels-photo-1181359.jpeg?w=400'
-        ],
-        videos: [],
-        extractedAt: new Date().toISOString(),
-        textLength: 420,
-        imageCount: 1,
-        videoCount: 0
-      }
-    ];
-    
-    return mockArticles;
-  };
-
-  // Função para enviar artigo para o carrossel
-  const handleUseInCarousel = (article: ScrapedArticle) => {
-    // Converter ScrapedArticle para Article format
-    const carouselArticle = {
-      id: `scraped-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      title: article.title,
-      description: article.text.substring(0, 250) + (article.text.length > 250 ? '...' : ''),
-      url: article.url,
-      imageUrl: article.images[0] || 'https://images.pexels.com/photos/3184431/pexels-photo-3184431.jpeg?w=400',
-      publishDate: article.extractedAt,
-      source: 'Scraping Direto',
-      keywords: ['scraping', 'extracted'],
-      fullContent: article.text,
-      engagement: Math.floor(Math.random() * 1000) + 100,
-      sentiment: 0.6 + Math.random() * 0.3
-    };
-
-    // Adicionar aos artigos selecionados
-    const { selectedArticles, toggleArticleSelection } = useAppStore.getState();
-    const isAlreadySelected = selectedArticles.some(a => a.title === carouselArticle.title);
-    
-    if (!isAlreadySelected) {
-      // Adicionar aos artigos principais se não existir
-      const { articles, setArticles } = useAppStore.getState();
-      const existsInArticles = articles.some(a => a.title === carouselArticle.title);
-      
-      if (!existsInArticles) {
-        setArticles([carouselArticle, ...articles]);
-      }
-      
-      // Selecionar automaticamente
-      toggleArticleSelection(carouselArticle);
-      
-      console.log(`✅ Artigo "${carouselArticle.title}" adicionado ao carrossel`);
-    } else {
-      console.log(`⚠️ Artigo "${carouselArticle.title}" já está selecionado`);
-    }
-  };
-
   const handleKeywordToggle = (keyword: string) => {
     setSelectedKeywords(prev => 
       prev.includes(keyword) 
@@ -342,11 +212,9 @@ export const ScrapingPanel: React.FC = () => {
       },
       trends: trendData,
       articles: articles,
-      scrapedArticles: scrapedArticles,
       summary: {
         totalArticles: articles.length,
         totalTrends: trendData.length,
-        totalScrapedArticles: scrapedArticles.length,
         videoArticles: articles.filter(a => ['YouTube', 'Instagram', 'TikTok'].some(platform => a.source.includes(platform))).length,
         avgScore: trendData.length > 0 ? (trendData.reduce((sum, t) => sum + t.score, 0) / trendData.length).toFixed(2) : 0,
         timeRangeAnalyzed: getTimeRangeDescription()
@@ -357,7 +225,7 @@ export const ScrapingPanel: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `analysis-${searchKeyword || 'url-scraping'}-${timeRange}-${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `analysis-${searchKeyword}-${timeRange}-${new Date().toISOString().split('T')[0]}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -376,6 +244,105 @@ export const ScrapingPanel: React.FC = () => {
     };
   };
 
+  // Função simulada para scraping de URL
+  const simulateUrlScraping = async (url: string) => {
+    // Simular delay de processamento
+    await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 3000));
+
+    // Simular dados extraídos
+    const mockData = {
+      title: `Artigo Extraído de ${new URL(url).hostname}`,
+      text: `Este é o conteúdo completo extraído da URL ${url}. O texto contém informações valiosas sobre o tópico abordado no site. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium.`,
+      images: [
+        'https://images.pexels.com/photos/3184431/pexels-photo-3184431.jpeg?w=400',
+        'https://images.pexels.com/photos/577585/pexels-photo-577585.jpeg?w=400',
+        'https://images.pexels.com/photos/374918/pexels-photo-374918.jpeg?w=400'
+      ],
+      videos: [
+        'https://example.com/video1.mp4',
+        'https://youtube.com/embed/example'
+      ],
+      url,
+      extractedAt: new Date().toISOString(),
+      textLength: 0,
+      imageCount: 0,
+      videoCount: 0
+    };
+
+    mockData.textLength = mockData.text.length;
+    mockData.imageCount = mockData.images.length;
+    mockData.videoCount = mockData.videos.length;
+
+    return mockData;
+  };
+
+  const handleUrlScraping = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!scrapingUrl.trim()) return;
+
+    // Validar URL
+    try {
+      new URL(scrapingUrl);
+    } catch {
+      setUrlScrapingError('URL inválida. Por favor, insira uma URL válida.');
+      return;
+    }
+
+    setIsScrapingUrl(true);
+    setUrlScrapingError(null);
+
+    try {
+      console.log(`🔍 Extraindo conteúdo de: ${scrapingUrl}`);
+      
+      // Simular chamada para apifyService.runScraping(url)
+      const extractedData = await simulateUrlScraping(scrapingUrl);
+      
+      if (!extractedData || !extractedData.title) {
+        throw new Error('Nenhum conteúdo encontrado na URL');
+      }
+
+      setScrapedArticles([extractedData]);
+      console.log(`✅ Conteúdo extraído com sucesso`);
+      
+    } catch (error) {
+      console.error('❌ Erro no scraping da URL:', error);
+      setUrlScrapingError(error instanceof Error ? error.message : 'Erro ao extrair conteúdo da URL');
+    } finally {
+      setIsScrapingUrl(false);
+    }
+  };
+
+  const handleUseInCarousel = (article: any) => {
+    // Converter para formato Article e adicionar aos selecionados
+    const convertedArticle = {
+      id: `scraped-${Date.now()}`,
+      title: article.title,
+      description: article.text.substring(0, 200) + '...',
+      url: article.url,
+      imageUrl: article.images[0] || 'https://images.pexels.com/photos/3184431/pexels-photo-3184431.jpeg?w=400',
+      publishDate: article.extractedAt,
+      source: new URL(article.url).hostname,
+      keywords: ['scraped', 'extracted'],
+      fullContent: article.text
+    };
+
+    // Adicionar aos artigos do store principal
+    const currentArticles = articles;
+    setArticles([...currentArticles, convertedArticle]);
+
+    // Definir como artigo selecionado no IA Generator
+    setSelectedArticle({
+      title: article.title,
+      text: article.text,
+      images: article.images,
+      videos: article.videos,
+      url: article.url,
+      extractedAt: article.extractedAt
+    });
+
+    console.log('✅ Artigo adicionado ao carrossel e selecionado para IA');
+  };
+
   return (
     <div className="space-y-6">
       {/* API Warning */}
@@ -386,7 +353,7 @@ export const ScrapingPanel: React.FC = () => {
         />
       )}
 
-      {/* URL Scraping Section */}
+      {/* Scraping Direto de URL */}
       <motion.div
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -394,14 +361,14 @@ export const ScrapingPanel: React.FC = () => {
       >
         <div className="flex items-center gap-3 mb-6">
           <div className="p-3 bg-green-500/20 rounded-lg">
-            <Search size={24} className="text-green-400" />
+            <ExternalLink size={24} className="text-green-400" />
           </div>
           <div>
             <h3 className="text-white font-inter font-semibold text-xl">
               Scraping Direto de URL
             </h3>
             <p className="text-gray-400 font-inter text-sm">
-              Extraia conteúdo completo de qualquer página web
+              Extraia conteúdo completo de qualquer página web para usar no carrossel
             </p>
           </div>
         </div>
@@ -409,228 +376,179 @@ export const ScrapingPanel: React.FC = () => {
         <form onSubmit={handleUrlScraping} className="space-y-4">
           <div className="flex gap-4">
             <div className="flex-1">
-              <label className="block text-gray-300 font-inter font-medium text-sm mb-2">
-                URL da Página
-              </label>
               <input
                 type="url"
                 value={scrapingUrl}
                 onChange={(e) => setScrapingUrl(e.target.value)}
-                placeholder="https://exemplo.com/artigo"
-                className="w-full bg-black border border-gray-700 rounded-lg px-4 py-3 text-white font-inter placeholder-gray-500 focus:outline-none focus:border-green-400 transition-colors"
+                placeholder="https://exemplo.com/artigo-interessante"
+                className="w-full bg-black border border-gray-700 rounded-lg px-4 py-3 text-white font-inter placeholder-gray-500 focus:outline-none focus:border-[#1500FF] transition-colors"
                 disabled={isScrapingUrl}
               />
             </div>
             
-            <div className="flex items-end">
-              <motion.button
-                type="submit"
-                disabled={isScrapingUrl || !scrapingUrl.trim()}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="bg-green-500 text-white px-8 py-3 rounded-lg font-inter font-semibold flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:bg-green-600"
-              >
-                {isScrapingUrl ? (
-                  <>
-                    <Loader size={20} className="animate-spin" />
-                    Extraindo...
-                  </>
-                ) : (
-                  <>
-                    <Search size={20} />
-                    Extrair Conteúdo
-                  </>
-                )}
-              </motion.button>
-            </div>
+            <motion.button
+              type="submit"
+              disabled={isScrapingUrl || !scrapingUrl.trim()}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg font-inter font-semibold flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+            >
+              {isScrapingUrl ? (
+                <>
+                  <Loader size={20} className="animate-spin" />
+                  Extraindo...
+                </>
+              ) : (
+                <>
+                  <Search size={20} />
+                  Extrair Conteúdo
+                </>
+              )}
+            </motion.button>
           </div>
 
-          {scrapingUrlError && (
+          {urlScrapingError && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               className="flex items-center gap-2 text-red-400 font-inter text-sm bg-red-900/20 p-3 rounded-lg border border-red-800"
             >
               <AlertCircle size={16} />
-              {scrapingUrlError}
-            </motion.div>
-          )}
-
-          {isScrapingUrl && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex items-center gap-2 text-green-400 font-inter text-sm bg-green-900/20 p-3 rounded-lg border border-green-800"
-            >
-              <Loader size={16} className="animate-spin" />
-              <div>
-                <div className="font-medium">Extraindo conteúdo da página...</div>
-                <div className="text-xs text-gray-400 mt-1">
-                  Analisando título, texto, imagens e vídeos
-                </div>
-              </div>
+              {urlScrapingError}
             </motion.div>
           )}
         </form>
-      </motion.div>
 
-      {/* Scraped Articles Cards */}
-      {scrapedArticles.length > 0 && (
-        <motion.div
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          className="bg-[#111111] rounded-xl p-6 border border-gray-800"
-        >
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h3 className="text-white font-inter font-semibold text-lg">
-                Conteúdo Extraído ({scrapedArticles.length} artigos)
-              </h3>
-              <p className="text-gray-400 font-inter text-sm">
-                Clique em "Usar no Carrossel" para adicionar aos artigos selecionados
-              </p>
-            </div>
-
-            <motion.button
-              onClick={exportAnalysis}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-inter font-medium text-sm transition-all duration-200"
-            >
-              <Download size={16} />
-              Exportar
-            </motion.button>
-          </div>
-
-          {/* Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {scrapedArticles.map((article, index) => (
-              <motion.div
-                key={index}
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: index * 0.1 }}
-                className="bg-gradient-to-br from-gray-900 to-black rounded-xl overflow-hidden border border-gray-800 hover:border-gray-700 transition-all duration-300 group"
-              >
-                {/* Card Image */}
-                <div className="relative h-48 overflow-hidden">
-                  {article.images.length > 0 ? (
+        {/* Artigos Extraídos */}
+        {scrapedArticles.length > 0 && (
+          <div className="mt-6">
+            <h4 className="text-white font-inter font-semibold text-lg mb-4">
+              📄 Conteúdo Extraído ({scrapedArticles.length})
+            </h4>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {scrapedArticles.map((article, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ delay: index * 0.1 }}
+                  className="bg-gradient-to-br from-gray-900 to-black rounded-xl overflow-hidden border border-gray-800 hover:border-gray-700 transition-all duration-300"
+                >
+                  {/* Imagem */}
+                  <div className="relative h-48 overflow-hidden">
                     <img
-                      src={article.images[0]}
+                      src={article.images[0] || 'https://images.pexels.com/photos/3184431/pexels-photo-3184431.jpeg?w=400'}
                       alt={article.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.src = 'https://images.pexels.com/photos/3184431/pexels-photo-3184431.jpeg?w=400';
-                      }}
+                      className="w-full h-full object-cover"
                     />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
-                      <Image size={48} className="text-gray-600" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                    
+                    {/* Badges */}
+                    <div className="absolute top-3 left-3 flex gap-2">
+                      {article.imageCount > 0 && (
+                        <span className="bg-blue-500/80 text-white px-2 py-1 rounded text-xs font-inter flex items-center gap-1">
+                          <Image size={12} />
+                          {article.imageCount}
+                        </span>
+                      )}
+                      {article.videoCount > 0 && (
+                        <span className="bg-red-500/80 text-white px-2 py-1 rounded text-xs font-inter flex items-center gap-1">
+                          <Film size={12} />
+                          {article.videoCount}
+                        </span>
+                      )}
                     </div>
-                  )}
-                  
-                  {/* Media Indicators */}
-                  <div className="absolute top-3 right-3 flex gap-2">
-                    {article.imageCount > 0 && (
-                      <div className="bg-black/70 text-white px-2 py-1 rounded-full text-xs font-inter flex items-center gap-1">
+                  </div>
+
+                  {/* Conteúdo */}
+                  <div className="p-6">
+                    <h5 className="text-white font-inter font-semibold text-lg mb-3 line-clamp-2">
+                      {article.title}
+                    </h5>
+                    
+                    <p className="text-gray-300 font-inter text-sm mb-4 line-clamp-4">
+                      {article.text.substring(0, 250)}...
+                    </p>
+
+                    {/* Estatísticas */}
+                    <div className="flex items-center gap-4 mb-4 text-xs font-inter text-gray-400">
+                      <span className="flex items-center gap-1">
+                        <Type size={12} />
+                        {article.textLength.toLocaleString()} chars
+                      </span>
+                      <span className="flex items-center gap-1">
                         <Image size={12} />
-                        {article.imageCount}
-                      </div>
-                    )}
-                    {article.videoCount > 0 && (
-                      <div className="bg-black/70 text-white px-2 py-1 rounded-full text-xs font-inter flex items-center gap-1">
-                        <Video size={12} />
-                        {article.videoCount}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Text Length Indicator */}
-                  <div className="absolute bottom-3 left-3">
-                    <div className="bg-black/70 text-white px-2 py-1 rounded-full text-xs font-inter flex items-center gap-1">
-                      <Type size={12} />
-                      {article.textLength} chars
+                        {article.imageCount} imgs
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Film size={12} />
+                        {article.videoCount} vídeos
+                      </span>
                     </div>
+
+                    {/* Botão de Ação */}
+                    <motion.button
+                      onClick={() => handleUseInCarousel(article)}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="w-full bg-[#1500FF] hover:bg-blue-600 text-white py-3 rounded-lg font-inter font-semibold flex items-center justify-center gap-2 transition-all duration-200"
+                    >
+                      <CheckCircle size={18} />
+                      Usar no Carrossel
+                    </motion.button>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+
+            {/* Resumo dos Dados Extraídos */}
+            <div className="mt-6 bg-green-900/20 border border-green-800 rounded-lg p-4">
+              <h5 className="text-green-400 font-inter font-semibold text-sm mb-3">
+                📊 Resumo da Extração
+              </h5>
+              
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                <div>
+                  <div className="text-green-400 font-inter font-bold text-lg">
+                    {scrapedArticles.reduce((sum, a) => sum + a.textLength, 0).toLocaleString()}
+                  </div>
+                  <div className="text-gray-400 font-inter text-xs">
+                    Total de Caracteres
                   </div>
                 </div>
-
-                {/* Card Content */}
-                <div className="p-5">
-                  {/* Title */}
-                  <h4 className="text-white font-inter font-semibold text-lg mb-3 line-clamp-2 leading-tight">
-                    {article.title}
-                  </h4>
-                  
-                  {/* Text Preview */}
-                  <p className="text-gray-300 font-inter text-sm mb-4 line-clamp-4 leading-relaxed">
-                    {article.text.substring(0, 250)}
-                    {article.text.length > 250 && '...'}
-                  </p>
-
-                  {/* Metadata */}
-                  <div className="flex items-center justify-between text-xs font-inter text-gray-500 mb-4">
-                    <span>Extraído em {new Date(article.extractedAt).toLocaleDateString('pt-BR')}</span>
-                    <span>{article.textLength} caracteres</span>
+                
+                <div>
+                  <div className="text-blue-400 font-inter font-bold text-lg">
+                    {scrapedArticles.reduce((sum, a) => sum + a.imageCount, 0)}
                   </div>
-
-                  {/* Action Button */}
-                  <motion.button
-                    onClick={() => handleUseInCarousel(article)}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="w-full bg-green-500 hover:bg-green-600 text-white py-3 rounded-lg font-inter font-semibold flex items-center justify-center gap-2 transition-all duration-200"
-                  >
-                    <Plus size={18} />
-                    Usar no Carrossel
-                  </motion.button>
+                  <div className="text-gray-400 font-inter text-xs">
+                    Imagens Encontradas
+                  </div>
                 </div>
-              </motion.div>
-            ))}
-          </div>
-
-          {/* Summary Stats */}
-          <div className="mt-6 bg-gray-900/50 rounded-lg p-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-              <div>
-                <div className="text-green-400 font-inter font-bold text-lg">
-                  {scrapedArticles.length}
+                
+                <div>
+                  <div className="text-red-400 font-inter font-bold text-lg">
+                    {scrapedArticles.reduce((sum, a) => sum + a.videoCount, 0)}
+                  </div>
+                  <div className="text-gray-400 font-inter text-xs">
+                    Vídeos Encontrados
+                  </div>
                 </div>
-                <div className="text-gray-400 font-inter text-xs">
-                  Artigos Extraídos
-                </div>
-              </div>
-              
-              <div>
-                <div className="text-blue-400 font-inter font-bold text-lg">
-                  {scrapedArticles.reduce((sum, a) => sum + a.imageCount, 0)}
-                </div>
-                <div className="text-gray-400 font-inter text-xs">
-                  Imagens Encontradas
-                </div>
-              </div>
-              
-              <div>
-                <div className="text-purple-400 font-inter font-bold text-lg">
-                  {scrapedArticles.reduce((sum, a) => sum + a.videoCount, 0)}
-                </div>
-                <div className="text-gray-400 font-inter text-xs">
-                  Vídeos Encontrados
-                </div>
-              </div>
-              
-              <div>
-                <div className="text-yellow-400 font-inter font-bold text-lg">
-                  {Math.round(scrapedArticles.reduce((sum, a) => sum + a.textLength, 0) / scrapedArticles.length)}
-                </div>
-                <div className="text-gray-400 font-inter text-xs">
-                  Chars Médio/Artigo
+                
+                <div>
+                  <div className="text-purple-400 font-inter font-bold text-lg">
+                    {scrapedArticles.length}
+                  </div>
+                  <div className="text-gray-400 font-inter text-xs">
+                    Páginas Processadas
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </motion.div>
-      )}
+        )}
+      </motion.div>
 
       {/* Advanced Search Form */}
       <motion.form
@@ -990,7 +908,7 @@ export const ScrapingPanel: React.FC = () => {
                 </span>
               </div>
               
-              {(trendData.length > 0 || scrapedArticles.length > 0) && hasRequiredAPIs && (
+              {trendData.length > 0 && hasRequiredAPIs && (
                 <motion.button
                   onClick={exportAnalysis}
                   whileHover={{ scale: 1.05 }}
@@ -1267,7 +1185,7 @@ export const ScrapingPanel: React.FC = () => {
       )}
 
       {/* Empty State */}
-      {!isAnalyzing && !isScrapingUrl && articles.length === 0 && scrapedArticles.length === 0 && !scrapingError && !scrapingUrlError && (
+      {!isAnalyzing && articles.length === 0 && !scrapingError && scrapedArticles.length === 0 && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -1283,7 +1201,7 @@ export const ScrapingPanel: React.FC = () => {
             Scraping Pro Avançado com Transcrição de Vídeos
           </h3>
           <p className="text-gray-400 font-inter text-lg mb-6">
-            Análise profunda de tendências com conteúdo completo + vídeos transcritos + scraping direto de URLs
+            Análise profunda de tendências com conteúdo completo + vídeos transcritos
           </p>
           <div className="text-gray-500 font-inter text-sm space-y-1">
             <p>🔍 Scraping de múltiplas fontes com análise temporal</p>
@@ -1292,7 +1210,6 @@ export const ScrapingPanel: React.FC = () => {
             <p>🧠 Análise de sentimentos e predições com IA</p>
             <p>📊 Configuração flexível de período e profundidade</p>
             <p>⚡ Dados de Google, Twitter, Reddit, News e plataformas de vídeo</p>
-            <p>🌐 Scraping direto de qualquer URL com extração de mídia</p>
           </div>
         </motion.div>
       )}
