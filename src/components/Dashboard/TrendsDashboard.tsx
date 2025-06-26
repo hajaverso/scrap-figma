@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { TrendingUp, TrendingDown, BarChart3, Brain, Zap, Globe, Filter, RefreshCw, Download, Eye } from 'lucide-react';
+import { TrendingUp, TrendingDown, BarChart3, Brain, Zap, Globe, Filter, RefreshCw, Download, Eye, Search, Loader } from 'lucide-react';
 import { RelevanceChart } from './RelevanceChart';
 import { PredictionPanel } from './PredictionPanel';
 import { TrendCards } from './TrendCards';
@@ -24,6 +24,9 @@ export const TrendsDashboard: React.FC = () => {
   const [selectedTimeframe, setSelectedTimeframe] = useState('7d');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [autoRefresh, setAutoRefresh] = useState(false);
+  const [customKeyword, setCustomKeyword] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   const categories = [
     { id: 'all', name: 'Todos', icon: Globe },
@@ -55,8 +58,9 @@ export const TrendsDashboard: React.FC = () => {
 
   const loadInitialTrends = async () => {
     setIsLoading(true);
+    setSearchError(null);
     try {
-      console.log('🚀 Carregando trends com Apify...');
+      console.log('🚀 Carregando trends iniciais com Apify...');
       
       // Usar palavras-chave baseadas na categoria
       const keywords = getKeywordsByCategory(selectedCategory);
@@ -69,6 +73,7 @@ export const TrendsDashboard: React.FC = () => {
       console.log('✅ Trends carregados:', trendData.length);
     } catch (error) {
       console.error('❌ Erro ao carregar trends:', error);
+      setSearchError('Erro ao carregar dados. Usando dados de exemplo.');
       // Fallback data
       setTrends(generateFallbackTrends());
       setPredictions(generateFallbackPredictions());
@@ -77,10 +82,44 @@ export const TrendsDashboard: React.FC = () => {
     }
   };
 
+  const handleCustomKeywordSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customKeyword.trim()) return;
+
+    setIsSearching(true);
+    setSearchError(null);
+
+    try {
+      console.log(`🔍 Buscando análise para: "${customKeyword}"`);
+      
+      // Buscar trends para a palavra-chave personalizada
+      const trendData = await apifyService.scrapeTrends([customKeyword.trim()]);
+      const predictionData = await apifyService.generatePredictions(trendData);
+      
+      if (trendData.length === 0) {
+        throw new Error('Nenhum dado encontrado para esta palavra-chave');
+      }
+      
+      setTrends(trendData);
+      setPredictions(predictionData);
+      
+      console.log(`✅ Análise concluída para "${customKeyword}"`);
+      
+    } catch (error) {
+      console.error('❌ Erro na busca personalizada:', error);
+      setSearchError('Erro ao buscar dados para esta palavra-chave. Tente outra.');
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
   const refreshTrends = async () => {
     try {
-      const keywords = getKeywordsByCategory(selectedCategory);
-      const trendData = await apifyService.scrapeTrends(keywords.slice(0, 5)); // Refresh limitado
+      const keywords = customKeyword.trim() 
+        ? [customKeyword.trim()] 
+        : getKeywordsByCategory(selectedCategory).slice(0, 5);
+      
+      const trendData = await apifyService.scrapeTrends(keywords);
       
       // Atualizar apenas alguns trends para economizar recursos
       setTrends(prevTrends => {
@@ -110,8 +149,10 @@ export const TrendsDashboard: React.FC = () => {
   };
 
   const generateFallbackTrends = (): TrendData[] => {
-    return trendingKeywords.slice(0, 8).map((keyword, index) => ({
-      keyword,
+    const keyword = customKeyword.trim() || 'Technology';
+    
+    return Array.from({ length: 8 }, (_, index) => ({
+      keyword: customKeyword.trim() || trendingKeywords[index] || `Trend ${index + 1}`,
       score: 8.5 - (index * 0.3) + Math.random() * 0.5,
       sentiment: 0.4 + Math.random() * 0.4,
       volume: 150 - (index * 10) + Math.floor(Math.random() * 50),
@@ -135,6 +176,7 @@ export const TrendsDashboard: React.FC = () => {
   const exportData = () => {
     const dataToExport = {
       timestamp: new Date().toISOString(),
+      customKeyword: customKeyword || null,
       trends,
       predictions,
       metadata: {
@@ -148,7 +190,7 @@ export const TrendsDashboard: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `trends-${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `trends-${customKeyword || 'general'}-${new Date().toISOString().split('T')[0]}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -198,6 +240,74 @@ export const TrendsDashboard: React.FC = () => {
           </div>
         </div>
 
+        {/* Custom Keyword Search */}
+        <motion.form
+          onSubmit={handleCustomKeywordSearch}
+          initial={{ y: 10, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          className="mb-6 p-4 bg-gray-900/50 rounded-lg border border-gray-700"
+        >
+          <div className="flex items-center gap-3 mb-3">
+            <Search size={20} className="text-[#1500FF]" />
+            <h3 className="text-white font-inter font-semibold text-lg">
+              Busca Personalizada
+            </h3>
+          </div>
+          
+          <div className="flex gap-3">
+            <input
+              type="text"
+              value={customKeyword}
+              onChange={(e) => setCustomKeyword(e.target.value)}
+              placeholder="Digite uma palavra-chave personalizada... (ex: OpenAI, Blockchain, React)"
+              className="flex-1 bg-black border border-gray-700 rounded-lg px-4 py-3 text-white font-inter placeholder-gray-500 focus:outline-none focus:border-[#1500FF] transition-colors"
+              disabled={isSearching}
+            />
+            
+            <motion.button
+              type="submit"
+              disabled={isSearching || !customKeyword.trim()}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="bg-[#1500FF] text-white px-6 py-3 rounded-lg font-inter font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:bg-blue-600"
+            >
+              {isSearching ? (
+                <>
+                  <Loader size={18} className="animate-spin" />
+                  Analisando...
+                </>
+              ) : (
+                <>
+                  <Search size={18} />
+                  Analisar
+                </>
+              )}
+            </motion.button>
+          </div>
+
+          {searchError && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-3 flex items-center gap-2 text-red-400 font-inter text-sm bg-red-900/20 p-3 rounded-lg border border-red-800"
+            >
+              <TrendingDown size={16} />
+              {searchError}
+            </motion.div>
+          )}
+
+          {customKeyword && trends.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-3 flex items-center gap-2 text-green-400 font-inter text-sm bg-green-900/20 p-3 rounded-lg border border-green-800"
+            >
+              <TrendingUp size={16} />
+              Análise concluída para "{customKeyword}" • {trends.length} tendências encontradas
+            </motion.div>
+          )}
+        </motion.form>
+
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2">
@@ -209,7 +319,12 @@ export const TrendsDashboard: React.FC = () => {
                 return (
                   <motion.button
                     key={category.id}
-                    onClick={() => setSelectedCategory(category.id)}
+                    onClick={() => {
+                      setSelectedCategory(category.id);
+                      if (!customKeyword) {
+                        loadInitialTrends();
+                      }
+                    }}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     className={`flex items-center gap-2 px-3 py-1 rounded-lg font-inter text-sm transition-all duration-200 ${
@@ -243,18 +358,18 @@ export const TrendsDashboard: React.FC = () => {
       </motion.div>
 
       {/* Analytics Overview */}
-      <AnalyticsOverview trends={trends} isLoading={isLoading} />
+      <AnalyticsOverview trends={trends} isLoading={isLoading || isSearching} />
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Trends Cards */}
         <div className="lg:col-span-2">
-          <TrendCards trends={trends} isLoading={isLoading} />
+          <TrendCards trends={trends} isLoading={isLoading || isSearching} />
         </div>
 
         {/* Prediction Panel */}
         <div className="lg:col-span-1">
-          <PredictionPanel predictions={predictions} isLoading={isLoading} />
+          <PredictionPanel predictions={predictions} isLoading={isLoading || isSearching} />
         </div>
       </div>
 
@@ -263,7 +378,7 @@ export const TrendsDashboard: React.FC = () => {
 
       {/* Loading Overlay */}
       <AnimatePresence>
-        {isLoading && (
+        {(isLoading || isSearching) && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -279,10 +394,13 @@ export const TrendsDashboard: React.FC = () => {
               <div className="text-center">
                 <div className="animate-spin w-12 h-12 border-4 border-[#1500FF] border-t-transparent rounded-full mx-auto mb-4" />
                 <h3 className="text-white font-inter font-semibold text-lg mb-2">
-                  Processando com Apify
+                  {isSearching ? 'Analisando Palavra-chave' : 'Processando com Apify'}
                 </h3>
                 <p className="text-gray-400 font-inter text-sm">
-                  Coletando dados de múltiplas fontes...
+                  {isSearching 
+                    ? `Coletando dados para "${customKeyword}"...`
+                    : 'Coletando dados de múltiplas fontes...'
+                  }
                 </p>
               </div>
             </motion.div>
