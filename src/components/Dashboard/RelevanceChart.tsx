@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { BarChart3, TrendingUp, Activity } from 'lucide-react';
+import { formatScoreWithMax, formatPercentage, getSafeScoreValue } from '../../utils/scoreUtils';
 
 interface TrendData {
   keyword: string;
@@ -20,15 +21,16 @@ export const RelevanceChart: React.FC<RelevanceChartProps> = ({ trends, timefram
     return trends.slice(0, 10).map((trend, index) => ({
       ...trend,
       x: index,
-      height: (trend.score / 10) * 100,
-      sentimentColor: trend.sentiment > 0.6 ? '#22C55E' : trend.sentiment < 0.4 ? '#EF4444' : '#F59E0B',
-      growthDirection: trend.growth > 0 ? 'up' : 'down'
+      height: (getSafeScoreValue(trend.score) / 10) * 100,
+      sentimentColor: getSafeScoreValue(trend.sentiment, 0.5) > 0.6 ? '#22C55E' : 
+                     getSafeScoreValue(trend.sentiment, 0.5) < 0.4 ? '#EF4444' : '#F59E0B',
+      growthDirection: getSafeScoreValue(trend.growth) > 0 ? 'up' : 'down'
     }));
   }, [trends]);
 
-  const maxScore = Math.max(...trends.map(t => t.score), 10);
-  const avgSentiment = trends.reduce((sum, t) => sum + t.sentiment, 0) / trends.length;
-  const totalVolume = trends.reduce((sum, t) => sum + t.volume, 0);
+  const maxScore = Math.max(...trends.map(t => getSafeScoreValue(t.score)), 10);
+  const avgSentiment = trends.reduce((sum, t) => sum + getSafeScoreValue(t.sentiment, 0.5), 0) / Math.max(trends.length, 1);
+  const totalVolume = trends.reduce((sum, t) => sum + (t.volume || 0), 0);
 
   return (
     <motion.div
@@ -67,7 +69,7 @@ export const RelevanceChart: React.FC<RelevanceChartProps> = ({ trends, timefram
         {/* Y-axis labels */}
         <div className="absolute left-2 top-4 bottom-4 flex flex-col justify-between text-xs font-inter text-gray-500">
           {Array.from({ length: 6 }, (_, i) => (
-            <span key={i}>{(maxScore * (5 - i)) / 5}</span>
+            <span key={i}>{((maxScore * (5 - i)) / 5).toFixed(1)}</span>
           ))}
         </div>
 
@@ -117,7 +119,7 @@ export const RelevanceChart: React.FC<RelevanceChartProps> = ({ trends, timefram
               {/* Volume bar */}
               <motion.div
                 className="bg-gray-600 rounded-sm w-4 mb-2"
-                style={{ height: `${(data.volume / 200) * 40}%` }}
+                style={{ height: `${Math.min(((data.volume || 0) / 200) * 40, 40)}%` }}
                 initial={{ scaleY: 0 }}
                 animate={{ scaleY: 1 }}
                 transition={{ delay: index * 0.1 + 0.2 }}
@@ -132,10 +134,10 @@ export const RelevanceChart: React.FC<RelevanceChartProps> = ({ trends, timefram
               <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
                 <div className="bg-black/90 text-white p-3 rounded-lg text-xs font-inter whitespace-nowrap border border-gray-700">
                   <div className="font-semibold mb-1">{data.keyword}</div>
-                  <div>Score: {data.score.toFixed(1)}/10</div>
-                  <div>Sentimento: {(data.sentiment * 100).toFixed(0)}%</div>
-                  <div>Volume: {data.volume}</div>
-                  <div>Crescimento: {data.growth > 0 ? '+' : ''}{data.growth.toFixed(1)}%</div>
+                  <div>Score: {formatScoreWithMax(data.score)}</div>
+                  <div>Sentimento: {formatPercentage(data.sentiment)}</div>
+                  <div>Volume: {(data.volume || 0).toLocaleString()}</div>
+                  <div>Crescimento: {getSafeScoreValue(data.growth) > 0 ? '+' : ''}{getSafeScoreValue(data.growth).toFixed(1)}%</div>
                 </div>
               </div>
             </motion.div>
@@ -151,7 +153,7 @@ export const RelevanceChart: React.FC<RelevanceChartProps> = ({ trends, timefram
             <span className="text-gray-400 font-inter text-xs">Score Máximo</span>
           </div>
           <span className="text-white font-inter font-semibold">
-            {maxScore.toFixed(1)}/10
+            {formatScoreWithMax(maxScore)}
           </span>
         </div>
 
@@ -161,7 +163,7 @@ export const RelevanceChart: React.FC<RelevanceChartProps> = ({ trends, timefram
             <span className="text-gray-400 font-inter text-xs">Sentimento Médio</span>
           </div>
           <span className="text-white font-inter font-semibold">
-            {(avgSentiment * 100).toFixed(0)}%
+            {formatPercentage(avgSentiment)}
           </span>
         </div>
 

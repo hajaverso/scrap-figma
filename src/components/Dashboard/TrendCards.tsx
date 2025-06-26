@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { TrendingUp, TrendingDown, Activity, Users, Globe, Heart } from 'lucide-react';
+import { formatScoreWithMax, formatPercentage, formatGrowth, getScoreColor, getGrowthColor, getSentimentColor, getSafeScoreValue } from '../../utils/scoreUtils';
 
 interface TrendData {
   keyword: string;
@@ -17,23 +18,11 @@ interface TrendCardsProps {
 }
 
 export const TrendCards: React.FC<TrendCardsProps> = ({ trends, isLoading }) => {
-  const getSentimentColor = (sentiment: number) => {
-    if (sentiment >= 0.7) return 'text-green-400';
-    if (sentiment >= 0.5) return 'text-yellow-400';
-    return 'text-red-400';
-  };
-
   const getSentimentIcon = (sentiment: number) => {
-    if (sentiment >= 0.7) return '😊';
-    if (sentiment >= 0.5) return '😐';
+    const safeValue = getSafeScoreValue(sentiment, 0.5);
+    if (safeValue >= 0.7) return '😊';
+    if (safeValue >= 0.5) return '😐';
     return '😟';
-  };
-
-  const getGrowthColor = (growth: number) => {
-    if (growth > 10) return 'text-green-400';
-    if (growth > 0) return 'text-green-300';
-    if (growth < -10) return 'text-red-400';
-    return 'text-red-300';
   };
 
   if (isLoading) {
@@ -93,7 +82,7 @@ export const TrendCards: React.FC<TrendCardsProps> = ({ trends, isLoading }) => 
               </div>
               
               <div className="flex items-center gap-1">
-                {trend.growth > 0 ? (
+                {getSafeScoreValue(trend.growth) > 0 ? (
                   <TrendingUp size={16} className="text-green-400" />
                 ) : (
                   <TrendingDown size={16} className="text-red-400" />
@@ -108,9 +97,8 @@ export const TrendCards: React.FC<TrendCardsProps> = ({ trends, isLoading }) => 
                   <Activity size={14} className="text-[#1500FF]" />
                   <span className="text-gray-400 font-inter text-xs">Score</span>
                 </div>
-                <div className="text-white font-inter font-bold text-xl">
-                  {trend.score.toFixed(1)}
-                  <span className="text-gray-500 text-sm">/10</span>
+                <div className={`font-inter font-bold text-xl ${getScoreColor(trend.score)}`}>
+                  {formatScoreWithMax(trend.score)}
                 </div>
               </div>
 
@@ -121,7 +109,7 @@ export const TrendCards: React.FC<TrendCardsProps> = ({ trends, isLoading }) => 
                 </div>
                 <div className="flex items-center gap-2">
                   <span className={`font-inter font-semibold ${getSentimentColor(trend.sentiment)}`}>
-                    {(trend.sentiment * 100).toFixed(0)}%
+                    {formatPercentage(trend.sentiment)}
                   </span>
                   <span className="text-lg">
                     {getSentimentIcon(trend.sentiment)}
@@ -138,7 +126,7 @@ export const TrendCards: React.FC<TrendCardsProps> = ({ trends, isLoading }) => 
                   <span className="text-gray-400 font-inter text-xs">Volume</span>
                 </div>
                 <div className="text-white font-inter font-semibold">
-                  {trend.volume.toLocaleString()}
+                  {(trend.volume || 0).toLocaleString()}
                 </div>
               </div>
 
@@ -148,7 +136,7 @@ export const TrendCards: React.FC<TrendCardsProps> = ({ trends, isLoading }) => 
                   <span className="text-gray-400 font-inter text-xs">Crescimento</span>
                 </div>
                 <div className={`font-inter font-semibold ${getGrowthColor(trend.growth)}`}>
-                  {trend.growth > 0 ? '+' : ''}{trend.growth.toFixed(1)}%
+                  {formatGrowth(trend.growth)}
                 </div>
               </div>
             </div>
@@ -160,7 +148,7 @@ export const TrendCards: React.FC<TrendCardsProps> = ({ trends, isLoading }) => 
                 <span className="text-gray-400 font-inter text-xs">Fontes</span>
               </div>
               <div className="flex flex-wrap gap-1">
-                {trend.sources.slice(0, 3).map((source, sourceIndex) => (
+                {(trend.sources || []).slice(0, 3).map((source, sourceIndex) => (
                   <span
                     key={sourceIndex}
                     className="bg-gray-800 text-gray-300 px-2 py-1 rounded text-xs font-inter"
@@ -168,9 +156,9 @@ export const TrendCards: React.FC<TrendCardsProps> = ({ trends, isLoading }) => 
                     {source}
                   </span>
                 ))}
-                {trend.sources.length > 3 && (
+                {(trend.sources || []).length > 3 && (
                   <span className="text-gray-500 font-inter text-xs">
-                    +{trend.sources.length - 3}
+                    +{(trend.sources || []).length - 3}
                   </span>
                 )}
               </div>
@@ -180,13 +168,13 @@ export const TrendCards: React.FC<TrendCardsProps> = ({ trends, isLoading }) => 
             <div className="mb-3">
               <div className="flex justify-between text-xs font-inter text-gray-400 mb-1">
                 <span>Relevância</span>
-                <span>{trend.score.toFixed(1)}/10</span>
+                <span>{formatScoreWithMax(trend.score)}</span>
               </div>
               <div className="w-full bg-gray-800 rounded-full h-2">
                 <motion.div
                   className="bg-gradient-to-r from-[#1500FF] to-blue-400 h-2 rounded-full"
                   initial={{ width: 0 }}
-                  animate={{ width: `${(trend.score / 10) * 100}%` }}
+                  animate={{ width: `${(getSafeScoreValue(trend.score) / 10) * 100}%` }}
                   transition={{ delay: index * 0.1 + 0.3, duration: 0.8 }}
                 />
               </div>

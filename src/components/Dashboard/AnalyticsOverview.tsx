@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { BarChart3, TrendingUp, Activity, Globe, Zap, Brain } from 'lucide-react';
+import { formatScoreWithMax, formatPercentage, formatGrowth, getScoreColor, getGrowthColor, getSentimentColor, getSafeScoreValue } from '../../utils/scoreUtils';
 
 interface TrendData {
   keyword: string;
@@ -20,12 +21,16 @@ export const AnalyticsOverview: React.FC<AnalyticsOverviewProps> = ({ trends, is
   const analytics = useMemo(() => {
     if (!trends.length) return null;
 
-    const totalVolume = trends.reduce((sum, trend) => sum + trend.volume, 0);
-    const avgScore = trends.reduce((sum, trend) => sum + trend.score, 0) / trends.length;
-    const avgSentiment = trends.reduce((sum, trend) => sum + trend.sentiment, 0) / trends.length;
-    const avgGrowth = trends.reduce((sum, trend) => sum + trend.growth, 0) / trends.length;
-    const totalSources = new Set(trends.flatMap(trend => trend.sources)).size;
-    const topTrend = trends.reduce((top, trend) => trend.score > top.score ? trend : top, trends[0]);
+    const totalVolume = trends.reduce((sum, trend) => sum + (trend.volume || 0), 0);
+    const avgScore = trends.reduce((sum, trend) => sum + getSafeScoreValue(trend.score), 0) / trends.length;
+    const avgSentiment = trends.reduce((sum, trend) => sum + getSafeScoreValue(trend.sentiment, 0.5), 0) / trends.length;
+    const avgGrowth = trends.reduce((sum, trend) => sum + getSafeScoreValue(trend.growth), 0) / trends.length;
+    const totalSources = new Set(trends.flatMap(trend => trend.sources || [])).size;
+    const topTrend = trends.reduce((top, trend) => {
+      const topScore = getSafeScoreValue(top.score);
+      const currentScore = getSafeScoreValue(trend.score);
+      return currentScore > topScore ? trend : top;
+    }, trends[0]);
 
     return {
       totalVolume,
@@ -34,8 +39,8 @@ export const AnalyticsOverview: React.FC<AnalyticsOverviewProps> = ({ trends, is
       avgGrowth,
       totalSources,
       topTrend,
-      risingTrends: trends.filter(t => t.growth > 10).length,
-      hotTopics: trends.filter(t => t.score > 7).length
+      risingTrends: trends.filter(t => getSafeScoreValue(t.growth) > 10).length,
+      hotTopics: trends.filter(t => getSafeScoreValue(t.score) > 7).length
     };
   }, [trends]);
 
@@ -43,11 +48,11 @@ export const AnalyticsOverview: React.FC<AnalyticsOverviewProps> = ({ trends, is
     {
       icon: BarChart3,
       label: 'Score Médio',
-      value: analytics ? `${analytics.avgScore.toFixed(1)}/10` : '0',
-      color: 'text-[#1500FF]',
+      value: analytics ? formatScoreWithMax(analytics.avgScore) : '–',
+      color: analytics ? getScoreColor(analytics.avgScore) : 'text-gray-400',
       bgColor: 'bg-[#1500FF]/20',
-      trend: analytics && analytics.avgScore > 6 ? '+' : '',
-      isGood: analytics ? analytics.avgScore > 6 : false
+      trend: analytics && getSafeScoreValue(analytics.avgScore) > 6 ? '+' : '',
+      isGood: analytics ? getSafeScoreValue(analytics.avgScore) > 6 : false
     },
     {
       icon: Activity,
@@ -61,11 +66,11 @@ export const AnalyticsOverview: React.FC<AnalyticsOverviewProps> = ({ trends, is
     {
       icon: TrendingUp,
       label: 'Crescimento Médio',
-      value: analytics ? `${analytics.avgGrowth > 0 ? '+' : ''}${analytics.avgGrowth.toFixed(1)}%` : '0%',
-      color: analytics && analytics.avgGrowth > 0 ? 'text-green-400' : 'text-red-400',
-      bgColor: analytics && analytics.avgGrowth > 0 ? 'bg-green-500/20' : 'bg-red-500/20',
-      trend: analytics && analytics.avgGrowth > 0 ? '+' : '',
-      isGood: analytics ? analytics.avgGrowth > 0 : false
+      value: analytics ? formatGrowth(analytics.avgGrowth) : '–',
+      color: analytics ? getGrowthColor(analytics.avgGrowth) : 'text-gray-400',
+      bgColor: analytics && getSafeScoreValue(analytics.avgGrowth) > 0 ? 'bg-green-500/20' : 'bg-red-500/20',
+      trend: analytics && getSafeScoreValue(analytics.avgGrowth) > 0 ? '+' : '',
+      isGood: analytics ? getSafeScoreValue(analytics.avgGrowth) > 0 : false
     },
     {
       icon: Globe,
@@ -88,11 +93,12 @@ export const AnalyticsOverview: React.FC<AnalyticsOverviewProps> = ({ trends, is
     {
       icon: Brain,
       label: 'Sentimento Geral',
-      value: analytics ? `${(analytics.avgSentiment * 100).toFixed(0)}%` : '0%',
-      color: analytics && analytics.avgSentiment > 0.6 ? 'text-green-400' : analytics && analytics.avgSentiment < 0.4 ? 'text-red-400' : 'text-yellow-400',
-      bgColor: analytics && analytics.avgSentiment > 0.6 ? 'bg-green-500/20' : analytics && analytics.avgSentiment < 0.4 ? 'bg-red-500/20' : 'bg-yellow-500/20',
-      trend: analytics && analytics.avgSentiment > 0.5 ? '+' : '',
-      isGood: analytics ? analytics.avgSentiment > 0.5 : false
+      value: analytics ? formatPercentage(analytics.avgSentiment) : '–',
+      color: analytics ? getSentimentColor(analytics.avgSentiment) : 'text-gray-400',
+      bgColor: analytics && getSafeScoreValue(analytics.avgSentiment, 0.5) > 0.6 ? 'bg-green-500/20' : 
+                analytics && getSafeScoreValue(analytics.avgSentiment, 0.5) < 0.4 ? 'bg-red-500/20' : 'bg-yellow-500/20',
+      trend: analytics && getSafeScoreValue(analytics.avgSentiment, 0.5) > 0.5 ? '+' : '',
+      isGood: analytics ? getSafeScoreValue(analytics.avgSentiment, 0.5) > 0.5 : false
     }
   ];
 
@@ -179,10 +185,10 @@ export const AnalyticsOverview: React.FC<AnalyticsOverviewProps> = ({ trends, is
                 🏆 Tendência #1: {analytics.topTrend.keyword}
               </h3>
               <p className="text-gray-300 font-inter text-sm">
-                Score {analytics.topTrend.score.toFixed(1)}/10 • 
-                {analytics.topTrend.growth > 0 ? ' Crescimento ' : ' Declínio '}
-                {Math.abs(analytics.topTrend.growth).toFixed(1)}% • 
-                Sentimento {(analytics.topTrend.sentiment * 100).toFixed(0)}%
+                Score {formatScoreWithMax(analytics.topTrend.score)} • 
+                {getSafeScoreValue(analytics.topTrend.growth) > 0 ? ' Crescimento ' : ' Declínio '}
+                {formatGrowth(analytics.topTrend.growth)} • 
+                Sentimento {formatPercentage(analytics.topTrend.sentiment)}
               </p>
             </div>
 

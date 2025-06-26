@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Brain, TrendingUp, TrendingDown, Minus, Target, Clock } from 'lucide-react';
+import { formatScoreWithMax, formatPercentage, getScoreColor, getGrowthColor, getSafeScoreValue } from '../../utils/scoreUtils';
 
 interface PredictionData {
   keyword: string;
@@ -34,8 +35,9 @@ export const PredictionPanel: React.FC<PredictionPanelProps> = ({ predictions, i
   };
 
   const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 0.8) return 'text-green-400';
-    if (confidence >= 0.6) return 'text-yellow-400';
+    const safeValue = getSafeScoreValue(confidence, 0);
+    if (safeValue >= 0.8) return 'text-green-400';
+    if (safeValue >= 0.6) return 'text-yellow-400';
     return 'text-red-400';
   };
 
@@ -119,15 +121,15 @@ export const PredictionPanel: React.FC<PredictionPanelProps> = ({ predictions, i
             <div className="grid grid-cols-2 gap-4 mb-3">
               <div>
                 <span className="text-gray-400 font-inter text-xs">Atual</span>
-                <div className="text-white font-inter font-semibold">
-                  {prediction.currentScore.toFixed(1)}
+                <div className={`font-inter font-semibold ${getScoreColor(prediction.currentScore)}`}>
+                  {formatScoreWithMax(prediction.currentScore)}
                 </div>
               </div>
               
               <div>
                 <span className="text-gray-400 font-inter text-xs">Predição</span>
                 <div className={`font-inter font-semibold ${getTrendColor(prediction.trend)}`}>
-                  {prediction.predictedScore.toFixed(1)}
+                  {formatScoreWithMax(prediction.predictedScore)}
                 </div>
               </div>
             </div>
@@ -136,18 +138,18 @@ export const PredictionPanel: React.FC<PredictionPanelProps> = ({ predictions, i
             <div className="space-y-2 mb-3">
               <div className="flex justify-between text-xs font-inter text-gray-400">
                 <span>Score atual</span>
-                <span>{prediction.currentScore.toFixed(1)}/10</span>
+                <span>{formatScoreWithMax(prediction.currentScore)}</span>
               </div>
               <div className="w-full bg-gray-800 rounded-full h-2">
                 <div
                   className="bg-[#1500FF] h-2 rounded-full transition-all duration-500"
-                  style={{ width: `${(prediction.currentScore / 10) * 100}%` }}
+                  style={{ width: `${(getSafeScoreValue(prediction.currentScore) / 10) * 100}%` }}
                 />
               </div>
 
               <div className="flex justify-between text-xs font-inter text-gray-400">
                 <span>Score previsto</span>
-                <span>{prediction.predictedScore.toFixed(1)}/10</span>
+                <span>{formatScoreWithMax(prediction.predictedScore)}</span>
               </div>
               <div className="w-full bg-gray-800 rounded-full h-2">
                 <div
@@ -155,7 +157,7 @@ export const PredictionPanel: React.FC<PredictionPanelProps> = ({ predictions, i
                     prediction.trend === 'rising' ? 'bg-green-500' :
                     prediction.trend === 'falling' ? 'bg-red-500' : 'bg-gray-500'
                   }`}
-                  style={{ width: `${(prediction.predictedScore / 10) * 100}%` }}
+                  style={{ width: `${(getSafeScoreValue(prediction.predictedScore) / 10) * 100}%` }}
                 />
               </div>
             </div>
@@ -168,7 +170,7 @@ export const PredictionPanel: React.FC<PredictionPanelProps> = ({ predictions, i
               </div>
               
               <span className={`font-inter font-semibold text-sm ${getConfidenceColor(prediction.confidence)}`}>
-                {(prediction.confidence * 100).toFixed(0)}%
+                {formatPercentage(prediction.confidence)}
               </span>
             </div>
 
@@ -178,7 +180,7 @@ export const PredictionPanel: React.FC<PredictionPanelProps> = ({ predictions, i
                 <span className="text-gray-400">Mudança esperada</span>
                 <span className={getTrendColor(prediction.trend)}>
                   {prediction.trend === 'rising' ? '+' : prediction.trend === 'falling' ? '-' : ''}
-                  {Math.abs(prediction.predictedScore - prediction.currentScore).toFixed(1)} pontos
+                  {Math.abs(getSafeScoreValue(prediction.predictedScore) - getSafeScoreValue(prediction.currentScore)).toFixed(1)} pontos
                 </span>
               </div>
             </div>
@@ -198,7 +200,7 @@ export const PredictionPanel: React.FC<PredictionPanelProps> = ({ predictions, i
         <div className="text-gray-300 font-inter text-xs space-y-1">
           <p>• {predictions.filter(p => p.trend === 'rising').length} tendências em crescimento</p>
           <p>• {predictions.filter(p => p.trend === 'falling').length} tendências em declínio</p>
-          <p>• Confiança média: {((predictions.reduce((sum, p) => sum + p.confidence, 0) / predictions.length) * 100).toFixed(0)}%</p>
+          <p>• Confiança média: {formatPercentage(predictions.reduce((sum, p) => sum + getSafeScoreValue(p.confidence, 0), 0) / Math.max(predictions.length, 1))}</p>
         </div>
       </div>
     </motion.div>
