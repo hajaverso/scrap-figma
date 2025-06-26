@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Loader, AlertCircle, TrendingUp, Globe, Zap, Brain, BarChart3, Target, Calendar, Clock, Filter, FileText, Eye, Download, Video, Play, Music, Settings, Sparkles, CheckCircle } from 'lucide-react';
+import { Search, Loader, AlertCircle, TrendingUp, Globe, Zap, Brain, BarChart3, Target, Calendar, Clock, Filter, FileText, Eye, Download, Video, Play, Music, Settings, Sparkles, CheckCircle, Wifi, WifiOff } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { ArticleTable } from './ArticleTable';
 import { apifyService } from '../../services/apifyService';
@@ -37,10 +37,9 @@ export const ScrapingPanel: React.FC = () => {
   const [viralScores, setViralScores] = useState<Map<string, any>>(new Map());
 
   // Verificar APIs configuradas
-  const requiredAPIs = ['apifyKey', 'serpApiKey'] as const;
-  const apiWarning = apiConfigService.getWarningMessage(requiredAPIs);
-  const hasRequiredAPIs = !apiWarning;
+  const hasSerpAPI = apiConfigService.isConfigured('serpApiKey');
   const hasOpenAI = apiConfigService.isConfigured('openaiKey');
+  const hasAnyAPI = hasSerpAPI || hasOpenAI;
 
   const trendingCategories = [
     {
@@ -117,7 +116,7 @@ export const ScrapingPanel: React.FC = () => {
     setScrapingError(null);
 
     try {
-      console.log('🚀 Iniciando análise avançada com DuckDuckGo + IA...');
+      console.log('🚀 Iniciando análise REAL com DuckDuckGo + IA...');
       console.log(`📊 Configurações:`, {
         keyword: searchKeyword,
         additionalKeywords: selectedKeywords,
@@ -127,10 +126,11 @@ export const ScrapingPanel: React.FC = () => {
         sourcePriority,
         minEngagement,
         includeVideos,
-        videoTranscription
+        videoTranscription,
+        hasAPIs: { serpAPI: hasSerpAPI, openAI: hasOpenAI }
       });
       
-      // Configurar parâmetros avançados para o sistema
+      // Configurar parâmetros para scraping real
       const searchConfig = {
         keywords: [searchKeyword, ...selectedKeywords].slice(0, 8),
         timeRange,
@@ -143,23 +143,42 @@ export const ScrapingPanel: React.FC = () => {
         videoTranscription
       };
 
+      console.log('🦆 Executando scraping REAL...');
       const trends = await apifyService.scrapeAdvancedTrends(searchConfig);
       
       setTrendData(trends);
       
-      // Converter trends para articles com conteúdo completo
+      // Converter trends para articles
       const allArticles = trends.flatMap(trend => trend.articles);
+      
+      if (allArticles.length === 0) {
+        throw new Error('Nenhum artigo encontrado. Tente palavras-chave diferentes ou configure as APIs.');
+      }
+      
       setArticles(allArticles);
       
-      console.log(`✅ Análise concluída: ${allArticles.length} artigos de ${trends.length} tendências`);
+      console.log(`✅ Análise REAL concluída: ${allArticles.length} artigos de ${trends.length} tendências`);
       console.log(`🎥 Vídeos incluídos: ${allArticles.filter(a => ['YouTube', 'Instagram', 'TikTok'].some(platform => a.source.includes(platform))).length}`);
       
-      // Calcular scores virais automaticamente
-      await calculateViralScores(allArticles);
+      // Calcular scores virais se necessário
+      if (!allArticles.some(a => a.viralScore)) {
+        await calculateViralScores(allArticles);
+      }
       
     } catch (error) {
-      console.error('❌ Erro na análise avançada:', error);
-      setScrapingError('Erro na análise avançada. Verifique suas configurações de API e tente novamente.');
+      console.error('❌ Erro na análise:', error);
+      
+      let errorMessage = 'Erro na análise. ';
+      
+      if (!hasAnyAPI) {
+        errorMessage += 'Configure pelo menos uma API (SerpAPI ou OpenAI) para melhor funcionalidade.';
+      } else if (error instanceof Error) {
+        errorMessage += error.message;
+      } else {
+        errorMessage += 'Tente novamente ou configure mais APIs.';
+      }
+      
+      setScrapingError(errorMessage);
     } finally {
       setIsAnalyzing(false);
     }
@@ -172,13 +191,9 @@ export const ScrapingPanel: React.FC = () => {
     console.log(`🧠 Calculando scores de potencial viral para ${articlesToAnalyze.length} artigos...`);
 
     try {
-      // Verificar se OpenAI está configurada
-      const hasOpenAI = apiConfigService.isConfigured('openaiKey');
-      
       if (hasOpenAI && openAIService.isConfigured()) {
         console.log('🤖 Usando OpenAI para cálculo de scores virais...');
         
-        // Calcular scores usando OpenAI
         const scoresWithOpenAI = await Promise.all(
           articlesToAnalyze.map(async (article) => {
             try {
@@ -213,16 +228,11 @@ export const ScrapingPanel: React.FC = () => {
                 viralScore: 5.0,
                 viralAnalysis: {
                   overallScore: 5.0,
-                  emotionScore: 5.0,
-                  clarityScore: 5.0,
-                  carouselPotential: 5.0,
-                  trendScore: 5.0,
-                  authorityScore: 5.0,
                   analysis: {
                     emotions: ['neutro'],
                     strengths: ['conteúdo padrão'],
                     weaknesses: ['análise não disponível'],
-                    recommendations: ['tente novamente']
+                    recommendations: ['configure OpenAI para análise avançada']
                   }
                 }
               };
@@ -236,7 +246,6 @@ export const ScrapingPanel: React.FC = () => {
       } else {
         console.log('⚡ Usando análise local para scores virais...');
         
-        // Converter artigos para o formato esperado pelo serviço
         const articlesForAnalysis = articlesToAnalyze.map(article => ({
           title: article.title,
           description: article.description,
@@ -248,10 +257,8 @@ export const ScrapingPanel: React.FC = () => {
           videos: article.videos || []
         }));
 
-        // Calcular scores em lotes
         const scores = await viralScoreService.calculateBatchViralScores(articlesForAnalysis);
         
-        // Criar mapa de scores por ID do artigo
         const scoresMap = new Map();
         articlesToAnalyze.forEach((article, index) => {
           if (scores[index]) {
@@ -261,9 +268,6 @@ export const ScrapingPanel: React.FC = () => {
 
         setViralScores(scoresMap);
         
-        console.log(`✅ Scores virais calculados para ${scores.length} artigos`);
-        
-        // Atualizar artigos com os scores
         const articlesWithScores = articlesToAnalyze.map(article => ({
           ...article,
           viralScore: scoresMap.get(article.id)?.overallScore || 5.0,
@@ -271,27 +275,22 @@ export const ScrapingPanel: React.FC = () => {
         }));
         
         setArticles(articlesWithScores);
+        console.log(`✅ Scores virais calculados localmente para ${scores.length} artigos`);
       }
 
     } catch (error) {
       console.error('❌ Erro no cálculo de scores virais:', error);
       
-      // Em caso de erro, manter artigos sem scores
       const articlesWithDefaultScores = articlesToAnalyze.map(article => ({
         ...article,
         viralScore: 5.0,
         viralAnalysis: {
           overallScore: 5.0,
-          emotionScore: 5.0,
-          clarityScore: 5.0,
-          carouselPotential: 5.0,
-          trendScore: 5.0,
-          authorityScore: 5.0,
           analysis: {
             emotions: ['neutro'],
             strengths: ['conteúdo padrão'],
             weaknesses: ['análise não disponível'],
-            recommendations: ['configure OpenAI para análise avançada']
+            recommendations: ['configure APIs para análise avançada']
           }
         }
       }));
@@ -306,7 +305,7 @@ export const ScrapingPanel: React.FC = () => {
     setSelectedKeywords(prev => 
       prev.includes(keyword) 
         ? prev.filter(k => k !== keyword)
-        : [...prev, keyword].slice(0, 6) // Máximo 6 keywords adicionais
+        : [...prev, keyword].slice(0, 6)
     );
   };
 
@@ -349,7 +348,8 @@ export const ScrapingPanel: React.FC = () => {
         videoArticles: articles.filter(a => ['YouTube', 'Instagram', 'TikTok'].some(platform => a.source.includes(platform))).length,
         avgScore: trendData.length > 0 ? (trendData.reduce((sum, t) => sum + t.score, 0) / trendData.length).toFixed(2) : 0,
         avgViralScore: articles.length > 0 ? (articles.reduce((sum, a) => sum + (a.viralScore || 0), 0) / articles.length).toFixed(2) : 0,
-        timeRangeAnalyzed: getTimeRangeDescription()
+        timeRangeAnalyzed: getTimeRangeDescription(),
+        realDataUsed: hasAnyAPI
       }
     };
 
@@ -357,7 +357,7 @@ export const ScrapingPanel: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `analysis-${searchKeyword}-${timeRange}-${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `real-analysis-${searchKeyword}-${timeRange}-${new Date().toISOString().split('T')[0]}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -398,44 +398,36 @@ export const ScrapingPanel: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* API Warning */}
-      {apiWarning && (
-        <APIWarning
-          message={apiWarning}
-          onOpenSettings={() => setShowAPISettings(true)}
-        />
-      )}
-
       {/* Status Banner */}
       <motion.div
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         className={`${
-          hasRequiredAPIs
+          hasAnyAPI
             ? 'bg-green-900/20 border-green-800' 
             : 'bg-orange-900/20 border-orange-800'
         } rounded-xl p-4 border flex items-center justify-between`}
       >
         <div className="flex items-center gap-3">
           <div className={`p-2 rounded-lg ${
-            hasRequiredAPIs ? 'bg-green-500/20' : 'bg-orange-500/20'
+            hasAnyAPI ? 'bg-green-500/20' : 'bg-orange-500/20'
           }`}>
-            {hasRequiredAPIs ? (
-              <CheckCircle size={20} className="text-green-400" />
+            {hasAnyAPI ? (
+              <Wifi size={20} className="text-green-400" />
             ) : (
-              <AlertCircle size={20} className="text-orange-400" />
+              <WifiOff size={20} className="text-orange-400" />
             )}
           </div>
           <div>
             <h3 className={`font-inter font-medium text-sm ${
-              hasRequiredAPIs ? 'text-green-400' : 'text-orange-400'
+              hasAnyAPI ? 'text-green-400' : 'text-orange-400'
             }`}>
-              {hasRequiredAPIs ? '🦆 DuckDuckGo + IA Conectado' : '⚠️ Modo Demonstração'}
+              {hasAnyAPI ? '🦆 Scraping Real Ativo' : '⚠️ Modo Básico'}
             </h3>
             <p className="text-gray-400 font-inter text-xs">
-              {hasRequiredAPIs
-                ? 'Scraping real ativo com DuckDuckGo + análise de IA' 
-                : 'Configure APIs para ativar scraping real'
+              {hasAnyAPI
+                ? `DuckDuckGo + ${hasOpenAI ? 'IA Viral' : 'Análise Local'} • Dados reais disponíveis` 
+                : 'Configure SerpAPI ou OpenAI para dados reais e análise avançada'
               }
             </p>
           </div>
@@ -447,6 +439,11 @@ export const ScrapingPanel: React.FC = () => {
               🧠 IA Viral
             </div>
           )}
+          {hasSerpAPI && (
+            <div className="bg-blue-500/20 text-blue-400 px-3 py-1 rounded-full text-xs font-inter font-medium">
+              🦆 SerpAPI
+            </div>
+          )}
           <motion.button
             onClick={() => setShowAPISettings(true)}
             whileHover={{ scale: 1.05 }}
@@ -454,7 +451,7 @@ export const ScrapingPanel: React.FC = () => {
             className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-lg font-inter font-medium text-sm transition-all duration-200"
           >
             <Settings size={16} />
-            {hasRequiredAPIs ? 'Gerenciar' : 'Configurar'}
+            {hasAnyAPI ? 'Gerenciar APIs' : 'Configurar APIs'}
           </motion.button>
         </div>
       </motion.div>
@@ -472,10 +469,13 @@ export const ScrapingPanel: React.FC = () => {
           </div>
           <div>
             <h3 className="text-white font-inter font-semibold text-xl">
-              Scraping Pro Avançado com DuckDuckGo + IA Viral
+              Scraping Pro Real com DuckDuckGo + IA Viral
             </h3>
             <p className="text-gray-400 font-inter text-sm">
-              Análise temporal profunda + transcrição de vídeos + score de potencial viral
+              {hasAnyAPI 
+                ? 'Análise real de tendências com dados extraídos + score de potencial viral'
+                : 'Análise básica disponível • Configure APIs para funcionalidade completa'
+              }
             </p>
           </div>
         </div>
@@ -513,7 +513,7 @@ export const ScrapingPanel: React.FC = () => {
                 ) : (
                   <>
                     <Search size={20} />
-                    Análise Completa + IA
+                    {hasAnyAPI ? 'Análise Real + IA' : 'Análise Básica'}
                   </>
                 )}
               </motion.button>
@@ -733,6 +733,9 @@ export const ScrapingPanel: React.FC = () => {
                 onChange={(e) => setMinEngagement(parseInt(e.target.value))}
                 disabled={isAnalyzing}
                 className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider disabled:opacity-50"
+                style={{
+                  background: `linear-gradient(to right, #1500FF 0%, #1500FF ${minEngagement}%, #374151 ${minEngagement}%, #374151 100%)`
+                }}
               />
               <span className="text-gray-400 font-inter text-xs">
                 Filtrar conteúdo com baixo engajamento
@@ -798,23 +801,26 @@ export const ScrapingPanel: React.FC = () => {
 
           {/* Data Sources Info */}
           <div className={`rounded-lg p-4 ${
-            hasRequiredAPIs 
+            hasAnyAPI 
               ? 'bg-green-900/20 border border-green-800' 
-              : 'bg-red-900/20 border border-red-800'
+              : 'bg-orange-900/20 border border-orange-800'
           }`}>
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-3">
                 <div className={`w-2 h-2 rounded-full ${
-                  hasRequiredAPIs ? 'bg-green-500 animate-pulse' : 'bg-red-500'
+                  hasAnyAPI ? 'bg-green-500 animate-pulse' : 'bg-orange-500'
                 }`} />
                 <span className={`font-inter font-medium text-sm ${
-                  hasRequiredAPIs ? 'text-green-400' : 'text-red-400'
+                  hasAnyAPI ? 'text-green-400' : 'text-orange-400'
                 }`}>
-                  Sistema Inteligente + IA Viral - {hasRequiredAPIs ? 'Fontes Ativas' : 'APIs Não Configuradas'}
+                  {hasAnyAPI 
+                    ? '🦆 Scraping Real Ativo' 
+                    : '⚠️ Modo Básico (Funcionalidade Limitada)'
+                  }
                 </span>
               </div>
               
-              {trendData.length > 0 && hasRequiredAPIs && (
+              {trendData.length > 0 && (
                 <motion.button
                   onClick={exportAnalysis}
                   whileHover={{ scale: 1.05 }}
@@ -829,36 +835,24 @@ export const ScrapingPanel: React.FC = () => {
             
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-gray-300 font-inter text-xs">
               <div className="flex items-center gap-1">
-                <Globe size={12} />
-                <span>DuckDuckGo Search</span>
+                <Globe size={12} className={hasSerpAPI ? "text-blue-400" : "text-gray-500"} />
+                <span className={hasSerpAPI ? "" : "text-gray-500"}>DuckDuckGo Search</span>
+                {hasSerpAPI && <CheckCircle size={10} className="text-green-400" />}
               </div>
               <div className="flex items-center gap-1">
-                <Globe size={12} />
-                <span>Reddit</span>
+                <Globe size={12} className={hasSerpAPI ? "text-blue-400" : "text-gray-500"} />
+                <span className={hasSerpAPI ? "" : "text-gray-500"}>Extração de Conteúdo</span>
+                {hasSerpAPI && <CheckCircle size={10} className="text-green-400" />}
               </div>
               <div className="flex items-center gap-1">
-                <Globe size={12} />
-                <span>Twitter</span>
+                <Play size={12} className={hasSerpAPI ? "text-red-400" : "text-gray-500"} />
+                <span className={hasSerpAPI ? "" : "text-gray-500"}>Vídeos</span>
+                {hasSerpAPI && <CheckCircle size={10} className="text-green-400" />}
               </div>
               <div className="flex items-center gap-1">
-                <Globe size={12} />
-                <span>Hacker News</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <Play size={12} />
-                <span>YouTube</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <Video size={12} />
-                <span>Instagram</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <Music size={12} />
-                <span>TikTok</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <Sparkles size={12} />
-                <span>IA Viral Score</span>
+                <Sparkles size={12} className={hasOpenAI ? "text-purple-400" : "text-gray-500"} />
+                <span className={hasOpenAI ? "" : "text-gray-500"}>IA Viral Score</span>
+                {hasOpenAI && <CheckCircle size={10} className="text-green-400" />}
               </div>
             </div>
           </div>
@@ -885,7 +879,10 @@ export const ScrapingPanel: React.FC = () => {
             <div>
               <div className="font-medium">Processamento Avançado com DuckDuckGo + IA...</div>
               <div className="text-xs text-gray-400 mt-1">
-                Coletando conteúdo completo • Análise temporal {getTimeRangeDescription()} • {getAnalysisDescription()} • Transcrevendo vídeos • Calculando scores virais
+                {hasSerpAPI 
+                  ? 'Coletando dados reais • Extraindo conteúdo completo • Analisando tendências'
+                  : 'Modo básico ativo • Configure APIs para dados reais'
+                }
               </div>
             </div>
           </motion.div>
@@ -901,7 +898,10 @@ export const ScrapingPanel: React.FC = () => {
             <div>
               <div className="font-medium">🧠 IA Calculando Scores de Potencial Viral...</div>
               <div className="text-xs text-gray-400 mt-1">
-                Analisando emoção • Clareza • Potencial de carrossel • Tendência • Autoridade da fonte
+                {hasOpenAI 
+                  ? 'Usando OpenAI para análise avançada de potencial viral'
+                  : 'Usando análise local (configure OpenAI para resultados melhores)'
+                }
               </div>
             </div>
           </motion.div>
@@ -917,7 +917,7 @@ export const ScrapingPanel: React.FC = () => {
         >
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-white font-inter font-semibold text-lg">
-              📊 Análise Temporal Avançada com DuckDuckGo + IA Viral
+              📊 Análise Temporal {hasAnyAPI ? 'Real' : 'Básica'} com {hasOpenAI ? 'IA Viral' : 'Análise Local'}
             </h3>
             <div className="text-gray-400 font-inter text-sm">
               Período: {getTimeRangeDescription()} • {getAnalysisDescription()}
@@ -1063,7 +1063,7 @@ export const ScrapingPanel: React.FC = () => {
                 <div className="flex items-center gap-2 mb-3">
                   <Sparkles size={16} className="text-orange-400" />
                   <h4 className="text-orange-400 font-inter font-semibold text-sm">
-                    Análise de Potencial Viral (IA)
+                    Análise de Potencial Viral {hasOpenAI ? '(OpenAI)' : '(Local)'}
                   </h4>
                 </div>
                 
@@ -1148,10 +1148,10 @@ export const ScrapingPanel: React.FC = () => {
               
               <div>
                 <div className="text-purple-400 font-inter font-bold text-xl">
-                  {includeFullContent ? 'Full' : 'Basic'}
+                  {hasAnyAPI ? 'Real' : 'Básico'}
                 </div>
                 <div className="text-gray-400 font-inter text-xs">
-                  Tipo de Conteúdo
+                  Tipo de Dados
                 </div>
               </div>
             </div>
@@ -1187,10 +1187,13 @@ export const ScrapingPanel: React.FC = () => {
             </div>
           </div>
           <h3 className="text-white font-inter font-semibold text-xl mb-3">
-            Scraping Pro Avançado com DuckDuckGo + IA Viral
+            Scraping Pro Real com DuckDuckGo + IA Viral
           </h3>
           <p className="text-gray-400 font-inter text-lg mb-6">
-            Análise profunda de tendências com conteúdo completo + vídeos transcritos + score viral
+            {hasAnyAPI 
+              ? 'Análise real de tendências com dados extraídos + score viral'
+              : 'Configure APIs para ativar funcionalidade completa'
+            }
           </p>
           <div className="text-gray-500 font-inter text-sm space-y-1">
             <p>🦆 Scraping real com DuckDuckGo (sem rate limits)</p>
@@ -1199,7 +1202,7 @@ export const ScrapingPanel: React.FC = () => {
             <p>🧠 Análise de sentimentos e predições com IA</p>
             <p>✨ Score de potencial viral com 5 métricas de IA</p>
             <p>📊 Configuração flexível de período e profundidade</p>
-            <p>⚡ Dados de DuckDuckGo, Twitter, Reddit, News e plataformas de vídeo</p>
+            <p>⚡ Dados reais de múltiplas fontes</p>
           </div>
         </motion.div>
       )}

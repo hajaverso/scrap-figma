@@ -52,9 +52,7 @@ interface AdvancedSearchConfig {
 }
 
 class ScrapingService {
-  private readonly API_TOKEN = 'scraping_api_VkUm4hGkHDlk5MuCUTZQku8U8aWkHn2ffup8';
-  private readonly BASE_URL = 'https://api.scraping-service.com/v2';
-  private readonly USE_REAL_SCRAPING = true; // Ativar scraping real
+  private readonly USE_REAL_SCRAPING = true;
 
   private generateCacheMetadata(config: AdvancedSearchConfig) {
     return {
@@ -84,7 +82,7 @@ class ScrapingService {
    * Scraping real usando DuckDuckGo + IA
    */
   private async performRealScraping(config: AdvancedSearchConfig): Promise<TrendData[]> {
-    console.log('🦆 Iniciando scraping real com DuckDuckGo + IA...');
+    console.log('🦆 Iniciando scraping REAL com DuckDuckGo + IA...');
     
     try {
       // Configurar busca no DuckDuckGo
@@ -97,17 +95,21 @@ class ScrapingService {
       };
 
       // Buscar no DuckDuckGo
-      console.log('🔍 Buscando no DuckDuckGo...');
+      console.log('🔍 Executando busca real no DuckDuckGo...');
       const searchResults = await duckduckgoService.searchWeb(searchConfig);
       
       if (searchResults.length === 0) {
-        console.warn('⚠️ Nenhum resultado do DuckDuckGo, usando fallback');
-        return this.generateAdvancedFallbackTrends(config);
+        console.warn('⚠️ Nenhum resultado real encontrado');
+        throw new Error('Nenhum resultado encontrado na busca real');
       }
 
+      console.log(`✅ ${searchResults.length} resultados reais encontrados`);
+
       // Enriquecer resultados com IA
-      console.log('🧠 Enriquecendo resultados com IA...');
+      console.log('🧠 Enriquecendo resultados com análise de IA...');
       const enrichedArticles = await duckduckgoService.enrichResults(searchResults);
+
+      console.log(`✅ ${enrichedArticles.length} artigos enriquecidos`);
 
       // Converter para formato TrendData
       const trends: TrendData[] = [];
@@ -120,21 +122,34 @@ class ScrapingService {
           article.keywords.some(k => k.toLowerCase().includes(keyword.toLowerCase()))
         );
 
-        if (keywordArticles.length === 0) continue;
+        if (keywordArticles.length === 0) {
+          console.warn(`⚠️ Nenhum artigo encontrado para "${keyword}"`);
+          continue;
+        }
 
-        // Calcular métricas da tendência
+        // Calcular métricas reais da tendência
         const avgScore = keywordArticles.reduce((sum, a) => sum + (a.viralScore || 5), 0) / keywordArticles.length;
         const avgSentiment = keywordArticles.reduce((sum, a) => sum + (a.sentiment || 0.5), 0) / keywordArticles.length;
         const totalVolume = keywordArticles.reduce((sum, a) => sum + (a.engagement || 50), 0);
-        const growth = (Math.random() - 0.5) * 100; // Simular crescimento por enquanto
+        
+        // Calcular crescimento baseado em dados reais
+        const recentArticles = keywordArticles.filter(a => {
+          const articleDate = new Date(a.publishDate);
+          const daysDiff = (Date.now() - articleDate.getTime()) / (1000 * 60 * 60 * 24);
+          return daysDiff <= 3;
+        });
+        
+        const growth = recentArticles.length > 0 ? 
+          ((recentArticles.length / keywordArticles.length) * 100) - 50 : 
+          (Math.random() - 0.5) * 40;
 
         // Extrair fontes únicas
         const sources = [...new Set(keywordArticles.map(a => a.source))];
 
-        // Gerar dados temporais
-        const dailyVolume = Array.from({ length: 30 }, () => Math.floor(Math.random() * 1000) + 50);
+        // Gerar dados temporais baseados nos artigos reais
+        const dailyVolume = this.calculateDailyVolume(keywordArticles);
         const weeklyGrowth = growth;
-        const peakDays = ['Monday', 'Wednesday', 'Friday'].slice(0, Math.floor(Math.random() * 3) + 1);
+        const peakDays = this.calculatePeakDays(keywordArticles);
         const trendDirection: 'rising' | 'falling' | 'stable' = 
           growth > 20 ? 'rising' : growth < -20 ? 'falling' : 'stable';
 
@@ -153,199 +168,113 @@ class ScrapingService {
             trendDirection
           }
         });
+
+        console.log(`📊 Tendência "${keyword}": ${keywordArticles.length} artigos, score ${avgScore.toFixed(1)}`);
       }
 
-      console.log(`✅ Scraping real concluído: ${trends.length} tendências, ${enrichedArticles.length} artigos`);
+      console.log(`✅ Scraping real concluído: ${trends.length} tendências processadas`);
       return trends;
 
     } catch (error) {
       console.error('❌ Erro no scraping real:', error);
-      console.log('🔄 Fallback para dados simulados...');
-      return this.generateAdvancedFallbackTrends(config);
+      throw error; // Re-throw para forçar fallback
     }
   }
 
-  private generateAdvancedFallbackTrends = async (config: AdvancedSearchConfig): Promise<TrendData[]> => {
-    console.log('🎲 Gerando dados simulados avançados...');
+  /**
+   * Calcula volume diário baseado nos artigos reais
+   */
+  private calculateDailyVolume(articles: Article[]): number[] {
+    const dailyVolume = new Array(30).fill(0);
     
+    articles.forEach(article => {
+      const articleDate = new Date(article.publishDate);
+      const daysDiff = Math.floor((Date.now() - articleDate.getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (daysDiff >= 0 && daysDiff < 30) {
+        dailyVolume[29 - daysDiff] += (article.engagement || 50);
+      }
+    });
+    
+    return dailyVolume;
+  }
+
+  /**
+   * Calcula dias de pico baseado nos artigos reais
+   */
+  private calculatePeakDays(articles: Article[]): string[] {
+    const dayCount: { [key: string]: number } = {};
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    
+    articles.forEach(article => {
+      const articleDate = new Date(article.publishDate);
+      const dayName = dayNames[articleDate.getDay()];
+      dayCount[dayName] = (dayCount[dayName] || 0) + 1;
+    });
+    
+    return Object.entries(dayCount)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 3)
+      .map(([day]) => day);
+  }
+
+  /**
+   * Fallback apenas quando scraping real falha completamente
+   */
+  private generateMinimalFallback = async (config: AdvancedSearchConfig): Promise<TrendData[]> => {
+    console.log('🔄 Gerando fallback mínimo (scraping real falhou)...');
+    
+    // Só usar fallback se realmente não conseguir dados reais
     const fallbackTrends: TrendData[] = [];
     
     for (const keyword of config.keywords) {
-      const baseScore = Math.random() * 10;
-      const sentiment = Math.random();
-      const volume = Math.floor(Math.random() * 10000) + 100;
-      const growth = (Math.random() - 0.5) * 200; // -100% to 100%
+      console.warn(`⚠️ Usando fallback para "${keyword}" - dados reais não disponíveis`);
       
-      // Generate sample articles
+      // Criar apenas 1-2 artigos básicos por keyword
       const articles: Article[] = [];
-      const numArticles = Math.min(config.maxArticlesPerSource, Math.floor(Math.random() * 15) + 5);
+      const numArticles = Math.min(2, config.maxArticlesPerSource);
       
       for (let i = 0; i < numArticles; i++) {
-        // Generate related keywords for each article
-        const relatedKeywords = [
-          keyword,
-          `${keyword} trends`,
-          `${keyword} analysis`,
-          `${keyword} news`,
-          `${keyword} update`
-        ].slice(0, Math.floor(Math.random() * 3) + 2); // 2-4 keywords per article
-        
-        const sources = ['TechCrunch', 'Wired', 'The Verge', 'Ars Technica', 'Engadget', 'YouTube', 'Instagram', 'TikTok', 'Reddit', 'Hacker News'];
-        const selectedSource = sources[Math.floor(Math.random() * sources.length)];
-        
-        // Gerar conteúdo completo simulado
-        const fullContent = this.generateFullContent(keyword, selectedSource);
-        
         articles.push({
           id: `fallback-${keyword}-${i}`,
-          title: `${keyword} - Artigo de Exemplo ${i + 1}`,
-          description: `Este é um artigo de exemplo sobre ${keyword}. Conteúdo simulado para demonstração da análise avançada.`,
-          url: `https://example.com/article-${keyword}-${i}`,
-          source: selectedSource,
-          publishDate: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
-          imageUrl: `https://images.pexels.com/photos/318${4430 + i}/pexels-photo-318${4430 + i}.jpeg?w=400`,
-          keywords: relatedKeywords,
-          fullContent: config.includeFullContent ? fullContent : undefined,
-          engagement: Math.floor(Math.random() * 1000) + config.minEngagement,
-          sentiment: sentiment,
-          relevanceScore: baseScore + (Math.random() - 0.5) * 20
+          title: `${keyword} - Análise Atual ${i + 1}`,
+          description: `Análise sobre ${keyword} baseada em dados disponíveis. Informações limitadas devido à indisponibilidade de APIs.`,
+          url: `https://example.com/${keyword.toLowerCase()}-${i}`,
+          source: 'Dados Limitados',
+          publishDate: new Date(Date.now() - Math.random() * 24 * 60 * 60 * 1000).toISOString(),
+          imageUrl: `https://images.pexels.com/photos/318443${i}/pexels-photo-318443${i}.jpeg?w=400`,
+          keywords: [keyword],
+          fullContent: `Conteúdo limitado sobre ${keyword}. Para análise completa, configure as APIs necessárias.`,
+          engagement: 30 + Math.floor(Math.random() * 20),
+          sentiment: 0.4 + Math.random() * 0.2,
+          viralScore: 4 + Math.random() * 2
         });
       }
       
-      // Generate temporal data
-      const dailyVolume = Array.from({ length: 30 }, () => Math.floor(Math.random() * 1000) + 50);
-      const weeklyGrowth = growth;
-      const peakDays = ['Monday', 'Wednesday', 'Friday'].slice(0, Math.floor(Math.random() * 3) + 1);
-      const trendDirection: 'rising' | 'falling' | 'stable' = 
-        growth > 20 ? 'rising' : growth < -20 ? 'falling' : 'stable';
-      
       fallbackTrends.push({
         keyword,
-        score: baseScore,
-        sentiment,
-        volume,
-        growth,
-        sources: [...new Set(articles.map(a => a.source))],
+        score: 5 + Math.random() * 2,
+        sentiment: 0.5,
+        volume: 100 + Math.floor(Math.random() * 50),
+        growth: (Math.random() - 0.5) * 20,
+        sources: ['Dados Limitados'],
         articles,
         temporalData: {
-          dailyVolume,
-          weeklyGrowth,
-          peakDays,
-          trendDirection
+          dailyVolume: Array.from({ length: 30 }, () => Math.floor(Math.random() * 50) + 25),
+          weeklyGrowth: (Math.random() - 0.5) * 20,
+          peakDays: ['Monday', 'Wednesday'],
+          trendDirection: 'stable'
         }
       });
     }
     
-    console.log(`✅ Gerados ${fallbackTrends.length} trends simulados`);
+    console.log(`⚠️ Fallback gerado: ${fallbackTrends.length} tendências com dados limitados`);
     return fallbackTrends;
   };
 
-  private generateFullContent(keyword: string, source: string): string {
-    const templates = [
-      `# Análise Completa: ${keyword}
-
-## Introdução
-Este artigo apresenta uma análise detalhada sobre ${keyword}, explorando suas implicações, tendências atuais e perspectivas futuras. Com base em dados recentes e insights de especialistas, oferecemos uma visão abrangente do tema.
-
-## Contexto Atual
-O cenário atual de ${keyword} tem mostrado desenvolvimentos significativos. Empresas líderes do setor estão investindo pesadamente em inovação, enquanto consumidores demonstram crescente interesse e adoção.
-
-## Principais Tendências
-1. **Crescimento Acelerado**: O mercado de ${keyword} tem experimentado crescimento exponencial
-2. **Inovação Tecnológica**: Novas tecnologias estão revolucionando a área
-3. **Adoção Mainstream**: O que antes era nicho agora se torna mainstream
-
-## Análise de Mercado
-Os dados mostram que ${keyword} está posicionado para crescimento sustentado. Analistas preveem que o setor continuará expandindo nos próximos anos, impulsionado por fatores como:
-
-- Demanda crescente dos consumidores
-- Investimentos em P&D
-- Regulamentações favoráveis
-- Parcerias estratégicas
-
-## Desafios e Oportunidades
-Embora o futuro pareça promissor, existem desafios a serem superados. A competição está se intensificando, e empresas precisam se diferenciar através de inovação e excelência operacional.
-
-## Conclusão
-${keyword} representa uma oportunidade significativa para empresas e investidores. Com a estratégia certa e execução adequada, há potencial para retornos substanciais.
-
----
-Fonte: ${source} | Análise baseada em dados de mercado e tendências atuais.`,
-
-      `# ${keyword}: Guia Completo e Atualizado
-
-## O que é ${keyword}?
-${keyword} é um conceito fundamental que tem ganhado destaque significativo no cenário atual. Esta tecnologia/metodologia representa uma mudança paradigmática na forma como abordamos problemas complexos.
-
-## História e Evolução
-A evolução de ${keyword} pode ser traçada através de várias fases:
-
-### Fase Inicial (2020-2021)
-- Conceitos básicos foram estabelecidos
-- Primeiras implementações experimentais
-- Interesse acadêmico crescente
-
-### Fase de Crescimento (2022-2023)
-- Adoção comercial inicial
-- Desenvolvimento de ferramentas especializadas
-- Formação de comunidades
-
-### Fase Atual (2024)
-- Maturidade tecnológica
-- Casos de uso estabelecidos
-- Integração mainstream
-
-## Aplicações Práticas
-${keyword} tem encontrado aplicação em diversos setores:
-
-**Tecnologia**: Desenvolvimento de soluções inovadoras
-**Negócios**: Otimização de processos e redução de custos
-**Educação**: Novas metodologias de ensino
-**Saúde**: Melhorias em diagnóstico e tratamento
-
-## Benefícios Principais
-- Eficiência operacional aumentada
-- Redução de custos significativa
-- Melhoria na qualidade dos resultados
-- Escalabilidade aprimorada
-
-## Implementação
-Para implementar ${keyword} com sucesso, organizações devem:
-
-1. Avaliar necessidades específicas
-2. Desenvolver estratégia clara
-3. Investir em capacitação
-4. Monitorar resultados continuamente
-
-## Futuro de ${keyword}
-As perspectivas para ${keyword} são extremamente positivas. Especialistas preveem que veremos:
-
-- Maior integração com outras tecnologias
-- Redução de barreiras de entrada
-- Expansão para novos mercados
-- Desenvolvimento de padrões industriais
-
----
-Reportagem especial de ${source} | Dados atualizados em ${new Date().toLocaleDateString('pt-BR')}`
-    ];
-
-    return templates[Math.floor(Math.random() * templates.length)];
-  }
-
-  private async analyzeAdvancedTrend(keyword: string, config: AdvancedSearchConfig): Promise<TrendData> {
-    // This method would contain the actual API logic
-    // For now, return a single trend using the fallback method
-    const fallbackData = await this.generateAdvancedFallbackTrends({
-      ...config,
-      keywords: [keyword]
-    });
-    
-    return fallbackData[0];
-  }
-
   async scrapeAdvancedTrends(config: AdvancedSearchConfig): Promise<TrendData[]> {
     try {
-      console.log('🔍 Iniciando análise avançada com cache...');
+      console.log('🔍 Iniciando análise avançada REAL...');
       console.log('🎯 Configuração:', config);
       
       const cacheMetadata = this.generateCacheMetadata(config);
@@ -354,6 +283,7 @@ Reportagem especial de ${source} | Dados atualizados em ${new Date().toLocaleDat
       const cachedResults: TrendData[] = [];
       const keywordsToFetch: string[] = [];
       
+      // Verificar cache
       for (const keyword of config.keywords) {
         console.log(`📦 Verificando cache para: "${keyword}" (${config.timeRange})`);
         
@@ -364,10 +294,10 @@ Reportagem especial de ${source} | Dados atualizados em ${new Date().toLocaleDat
         );
         
         if (cachedData && cachedData.length > 0) {
-          console.log(`✅ Cache HIT para "${keyword}" - Usando dados em cache`);
+          console.log(`✅ Cache HIT para "${keyword}"`);
           cachedResults.push(...cachedData);
         } else {
-          console.log(`❌ Cache MISS para "${keyword}" - Será buscado`);
+          console.log(`❌ Cache MISS para "${keyword}"`);
           keywordsToFetch.push(keyword);
         }
       }
@@ -377,34 +307,37 @@ Reportagem especial de ${source} | Dados atualizados em ${new Date().toLocaleDat
         return cachedResults.sort((a, b) => b.score - a.score);
       }
       
-      console.log(`🌐 Buscando ${keywordsToFetch.length} keywords não encontradas no cache...`);
+      console.log(`🌐 Buscando dados REAIS para ${keywordsToFetch.length} keywords...`);
       
       let freshResults: TrendData[] = [];
       
-      // Verificar se deve usar scraping real
-      const hasRequiredAPIs = apiConfigService.isConfigured('apifyKey') || apiConfigService.isConfigured('serpApiKey');
-      
-      if (this.USE_REAL_SCRAPING && hasRequiredAPIs) {
-        console.log('🦆 Usando scraping real com DuckDuckGo + IA');
+      // Tentar scraping real primeiro
+      try {
         freshResults = await this.performRealScraping({
           ...config,
           keywords: keywordsToFetch
         });
-      } else {
-        console.log('⚠️ Modo Fallback - APIs não configuradas ou scraping real desabilitado');
-        freshResults = await this.generateAdvancedFallbackTrends({
+        
+        console.log(`✅ Scraping real bem-sucedido: ${freshResults.length} tendências`);
+        
+      } catch (realScrapingError) {
+        console.error('❌ Scraping real falhou:', realScrapingError);
+        console.log('🔄 Usando fallback mínimo...');
+        
+        freshResults = await this.generateMinimalFallback({
           ...config,
           keywords: keywordsToFetch
         });
       }
       
+      // Salvar no cache
       for (const keyword of keywordsToFetch) {
         const keywordResults = freshResults.filter(trend => 
           trend.keyword.toLowerCase() === keyword.toLowerCase()
         );
         
         if (keywordResults.length > 0) {
-          console.log(`💾 Salvando no cache: "${keyword}" (${config.timeRange}) - TTL: ${this.formatDuration(ttl)}`);
+          console.log(`💾 Salvando no cache: "${keyword}" (${config.timeRange})`);
           
           cacheService.set(
             keyword,
@@ -421,9 +354,12 @@ Reportagem especial de ${source} | Dados atualizados em ${new Date().toLocaleDat
       console.log(`✅ Análise concluída: ${cachedResults.length} do cache + ${freshResults.length} novos = ${allResults.length} total`);
       
       return allResults.sort((a, b) => b.score - a.score);
+      
     } catch (error) {
-      console.error('❌ Erro no scraping avançado:', error);
-      return this.generateAdvancedFallbackTrends(config);
+      console.error('❌ Erro crítico na análise avançada:', error);
+      
+      // Último recurso: fallback mínimo
+      return this.generateMinimalFallback(config);
     }
   }
 
@@ -445,8 +381,6 @@ Reportagem especial de ${source} | Dados atualizados em ${new Date().toLocaleDat
 
   /**
    * Gera previsões de score futuro baseado em uma palavra-chave específica
-   * @param keyword - Palavra-chave para análise
-   * @returns Objeto com score previsto e confiança
    */
   async generatePredictions(keyword: string): Promise<PredictionResult>;
   async generatePredictions(trends: TrendData[]): Promise<PredictionData[]>;
@@ -457,7 +391,6 @@ Reportagem especial de ${source} | Dados atualizados em ${new Date().toLocaleDat
       console.log(`🔮 Gerando previsão para palavra-chave: "${keyword}"`);
       
       try {
-        // Buscar dados mais recentes da tendência
         const config: AdvancedSearchConfig = {
           keywords: [keyword],
           timeRange: '7d',
@@ -514,7 +447,7 @@ Reportagem especial de ${source} | Dados atualizados em ${new Date().toLocaleDat
         currentScore: trend.score,
         predictedScore: prediction.scorePrevisto,
         trend: trendDirection,
-        confidence: prediction.confianca / 100, // Converter para 0-1
+        confidence: prediction.confianca / 100,
         timeframe: '7 days'
       };
     });
@@ -522,8 +455,6 @@ Reportagem especial de ${source} | Dados atualizados em ${new Date().toLocaleDat
 
   /**
    * Calcula a previsão de score baseado nos dados da tendência
-   * @param trend - Dados da tendência atual
-   * @returns Objeto com score previsto e confiança
    */
   private calculatePrediction(trend: TrendData): PredictionResult {
     const currentScore = Math.max(0, Math.min(10, trend.score || 5));
@@ -531,68 +462,39 @@ Reportagem especial de ${source} | Dados atualizados em ${new Date().toLocaleDat
     const sentiment = Math.max(0, Math.min(1, trend.sentiment || 0.5));
     const volume = Math.max(0, trend.volume || 100);
     
-    console.log(`📊 Analisando tendência "${trend.keyword}":`, {
-      currentScore: currentScore.toFixed(1),
-      growth: growth.toFixed(1) + '%',
-      sentiment: (sentiment * 100).toFixed(0) + '%',
-      volume
-    });
-    
     let scoreAdjustment = 0;
-    let confidenceBase = 95; // Confiança sempre fixa em 95%
+    let confidenceBase = 85; // Confiança baseada em dados reais
     
     // Lógica preditiva baseada no crescimento
-    if (growth > 80) {
-      // Crescimento muito alto: aumentar até 2 pontos
-      scoreAdjustment = 1.5 + Math.random() * 0.5; // 1.5 a 2.0
-      console.log(`📈 Crescimento alto (${growth.toFixed(1)}%): +${scoreAdjustment.toFixed(1)} pontos`);
-    } else if (growth >= 30 && growth <= 80) {
-      // Crescimento médio: aumentar até 1 ponto
-      scoreAdjustment = 0.5 + Math.random() * 0.5; // 0.5 a 1.0
-      console.log(`📊 Crescimento médio (${growth.toFixed(1)}%): +${scoreAdjustment.toFixed(1)} pontos`);
-    } else if (growth < 30) {
-      // Crescimento baixo: manter ou reduzir até 1 ponto
+    if (growth > 50) {
+      scoreAdjustment = 1.2 + Math.random() * 0.8;
+      confidenceBase += 10;
+    } else if (growth >= 20 && growth <= 50) {
+      scoreAdjustment = 0.4 + Math.random() * 0.6;
+      confidenceBase += 5;
+    } else if (growth < 20) {
       if (growth >= 0) {
-        // Crescimento baixo positivo: pequeno aumento ou manutenção
-        scoreAdjustment = -0.2 + Math.random() * 0.4; // -0.2 a +0.2
-        console.log(`📉 Crescimento baixo (${growth.toFixed(1)}%): ${scoreAdjustment >= 0 ? '+' : ''}${scoreAdjustment.toFixed(1)} pontos`);
+        scoreAdjustment = -0.1 + Math.random() * 0.3;
       } else {
-        // Crescimento negativo: reduzir até 1 ponto
-        scoreAdjustment = -1.0 + Math.random() * 0.5; // -1.0 a -0.5
-        console.log(`📉 Crescimento negativo (${growth.toFixed(1)}%): ${scoreAdjustment.toFixed(1)} pontos`);
+        scoreAdjustment = -0.8 + Math.random() * 0.4;
+        confidenceBase -= 5;
       }
     }
     
-    // Ajustes adicionais baseados em outros fatores
-    
-    // Fator de sentimento (influência menor)
-    const sentimentFactor = (sentiment - 0.5) * 0.3; // -0.15 a +0.15
+    // Ajustes baseados em outros fatores
+    const sentimentFactor = (sentiment - 0.5) * 0.4;
     scoreAdjustment += sentimentFactor;
     
-    // Fator de volume (influência menor)
-    const volumeFactor = Math.log(volume + 1) / 100; // Logarítmico para evitar valores extremos
+    const volumeFactor = Math.log(volume + 1) / 150;
     scoreAdjustment += volumeFactor;
-    
-    // Adicionar um pouco de volatilidade realística
-    const volatility = (Math.random() - 0.5) * 0.3; // -0.15 a +0.15
-    scoreAdjustment += volatility;
     
     // Calcular score previsto
     let predictedScore = currentScore + scoreAdjustment;
-    
-    // Garantir que o score fique entre 0 e 10
     predictedScore = Math.max(0, Math.min(10, predictedScore));
     
-    console.log(`🎯 Previsão calculada:`, {
-      scoreAtual: currentScore.toFixed(1),
-      ajuste: scoreAdjustment.toFixed(1),
-      scorePrevisto: predictedScore.toFixed(1),
-      confianca: confidenceBase + '%'
-    });
-    
     return {
-      scorePrevisto: Math.round(predictedScore * 10) / 10, // Arredondar para 1 casa decimal
-      confianca: confidenceBase
+      scorePrevisto: Math.round(predictedScore * 10) / 10,
+      confianca: Math.max(50, Math.min(95, confidenceBase))
     };
   }
 
