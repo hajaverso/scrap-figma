@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Loader, AlertCircle, TrendingUp, Globe, Zap, Brain, BarChart3, Target, Calendar, Clock, Filter, FileText, Eye, Download, Video, Play, Music, Settings, ExternalLink, Image, Film, Type, CheckCircle } from 'lucide-react';
+import { Search, Loader, AlertCircle, TrendingUp, Globe, Zap, Brain, BarChart3, Target, Calendar, Clock, Filter, FileText, Eye, Download, Video, Play, Music, Settings, Sparkles } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { ArticleTable } from './ArticleTable';
 import { apifyService } from '../../services/apifyService';
 import { apiConfigService } from '../../services/apiConfigService';
 import { APIWarning } from '../Common/APIWarning';
 import { APISettingsModal } from '../Settings/APISettingsModal';
-import { useIAGeneratorStore } from '../../store/iaGeneratorStore';
+import { viralScoreService } from '../../services/viralScoreService';
 
 export const ScrapingPanel: React.FC = () => {
   const {
@@ -21,8 +21,6 @@ export const ScrapingPanel: React.FC = () => {
     startScraping
   } = useAppStore();
 
-  const { setSelectedArticle } = useIAGeneratorStore();
-
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
   const [trendData, setTrendData] = useState<any[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -34,12 +32,8 @@ export const ScrapingPanel: React.FC = () => {
   const [includeVideos, setIncludeVideos] = useState(true);
   const [videoTranscription, setVideoTranscription] = useState(true);
   const [showAPISettings, setShowAPISettings] = useState(false);
-
-  // Estados para Scraping Direto de URL
-  const [scrapingUrl, setScrapingUrl] = useState('');
-  const [scrapedArticles, setScrapedArticles] = useState<any[]>([]);
-  const [isScrapingUrl, setIsScrapingUrl] = useState(false);
-  const [urlScrapingError, setUrlScrapingError] = useState<string | null>(null);
+  const [isCalculatingViralScores, setIsCalculatingViralScores] = useState(false);
+  const [viralScores, setViralScores] = useState<Map<string, any>>(new Map());
 
   // Verificar APIs configuradas
   const requiredAPIs = ['apifyKey', 'serpApiKey'] as const;
@@ -164,11 +158,64 @@ export const ScrapingPanel: React.FC = () => {
       console.log(`✅ Análise concluída: ${allArticles.length} artigos de ${trends.length} tendências`);
       console.log(`🎥 Vídeos incluídos: ${allArticles.filter(a => ['YouTube', 'Instagram', 'TikTok'].some(platform => a.source.includes(platform))).length}`);
       
+      // Calcular scores virais automaticamente
+      await calculateViralScores(allArticles);
+      
     } catch (error) {
       console.error('❌ Erro na análise avançada:', error);
       setScrapingError('Erro na análise avançada. Verifique suas configurações de API e tente novamente.');
     } finally {
       setIsAnalyzing(false);
+    }
+  };
+
+  const calculateViralScores = async (articlesToAnalyze: any[]) => {
+    if (articlesToAnalyze.length === 0) return;
+
+    setIsCalculatingViralScores(true);
+    console.log(`🧠 Calculando scores de potencial viral para ${articlesToAnalyze.length} artigos...`);
+
+    try {
+      // Converter artigos para o formato esperado pelo serviço
+      const articlesForAnalysis = articlesToAnalyze.map(article => ({
+        title: article.title,
+        description: article.description,
+        text: article.fullContent || article.description,
+        url: article.url,
+        source: article.source,
+        keywords: article.keywords || [],
+        images: article.images || [],
+        videos: article.videos || []
+      }));
+
+      // Calcular scores em lotes
+      const scores = await viralScoreService.calculateBatchViralScores(articlesForAnalysis);
+      
+      // Criar mapa de scores por ID do artigo
+      const scoresMap = new Map();
+      articlesToAnalyze.forEach((article, index) => {
+        if (scores[index]) {
+          scoresMap.set(article.id, scores[index]);
+        }
+      });
+
+      setViralScores(scoresMap);
+      
+      console.log(`✅ Scores virais calculados para ${scores.length} artigos`);
+      
+      // Atualizar artigos com os scores
+      const articlesWithScores = articlesToAnalyze.map(article => ({
+        ...article,
+        viralScore: scoresMap.get(article.id)?.overallScore || 5.0,
+        viralAnalysis: scoresMap.get(article.id)
+      }));
+      
+      setArticles(articlesWithScores);
+
+    } catch (error) {
+      console.error('❌ Erro no cálculo de scores virais:', error);
+    } finally {
+      setIsCalculatingViralScores(false);
     }
   };
 
@@ -212,11 +259,13 @@ export const ScrapingPanel: React.FC = () => {
       },
       trends: trendData,
       articles: articles,
+      viralScores: Object.fromEntries(viralScores),
       summary: {
         totalArticles: articles.length,
         totalTrends: trendData.length,
         videoArticles: articles.filter(a => ['YouTube', 'Instagram', 'TikTok'].some(platform => a.source.includes(platform))).length,
         avgScore: trendData.length > 0 ? (trendData.reduce((sum, t) => sum + t.score, 0) / trendData.length).toFixed(2) : 0,
+        avgViralScore: articles.length > 0 ? (articles.reduce((sum, a) => sum + (a.viralScore || 0), 0) / articles.length).toFixed(2) : 0,
         timeRangeAnalyzed: getTimeRangeDescription()
       }
     };
@@ -244,103 +293,22 @@ export const ScrapingPanel: React.FC = () => {
     };
   };
 
-  // Função simulada para scraping de URL
-  const simulateUrlScraping = async (url: string) => {
-    // Simular delay de processamento
-    await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 3000));
-
-    // Simular dados extraídos
-    const mockData = {
-      title: `Artigo Extraído de ${new URL(url).hostname}`,
-      text: `Este é o conteúdo completo extraído da URL ${url}. O texto contém informações valiosas sobre o tópico abordado no site. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium.`,
-      images: [
-        'https://images.pexels.com/photos/3184431/pexels-photo-3184431.jpeg?w=400',
-        'https://images.pexels.com/photos/577585/pexels-photo-577585.jpeg?w=400',
-        'https://images.pexels.com/photos/374918/pexels-photo-374918.jpeg?w=400'
-      ],
-      videos: [
-        'https://example.com/video1.mp4',
-        'https://youtube.com/embed/example'
-      ],
-      url,
-      extractedAt: new Date().toISOString(),
-      textLength: 0,
-      imageCount: 0,
-      videoCount: 0
+  const getViralScoreStats = () => {
+    if (viralScores.size === 0) return null;
+    
+    const scores = Array.from(viralScores.values()).map(analysis => analysis.overallScore);
+    const avgScore = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+    const highViralCount = scores.filter(score => score >= 7).length;
+    const mediumViralCount = scores.filter(score => score >= 5 && score < 7).length;
+    const lowViralCount = scores.filter(score => score < 5).length;
+    
+    return {
+      avgScore: avgScore.toFixed(1),
+      highViralCount,
+      mediumViralCount,
+      lowViralCount,
+      totalAnalyzed: scores.length
     };
-
-    mockData.textLength = mockData.text.length;
-    mockData.imageCount = mockData.images.length;
-    mockData.videoCount = mockData.videos.length;
-
-    return mockData;
-  };
-
-  const handleUrlScraping = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!scrapingUrl.trim()) return;
-
-    // Validar URL
-    try {
-      new URL(scrapingUrl);
-    } catch {
-      setUrlScrapingError('URL inválida. Por favor, insira uma URL válida.');
-      return;
-    }
-
-    setIsScrapingUrl(true);
-    setUrlScrapingError(null);
-
-    try {
-      console.log(`🔍 Extraindo conteúdo de: ${scrapingUrl}`);
-      
-      // Simular chamada para apifyService.runScraping(url)
-      const extractedData = await simulateUrlScraping(scrapingUrl);
-      
-      if (!extractedData || !extractedData.title) {
-        throw new Error('Nenhum conteúdo encontrado na URL');
-      }
-
-      setScrapedArticles([extractedData]);
-      console.log(`✅ Conteúdo extraído com sucesso`);
-      
-    } catch (error) {
-      console.error('❌ Erro no scraping da URL:', error);
-      setUrlScrapingError(error instanceof Error ? error.message : 'Erro ao extrair conteúdo da URL');
-    } finally {
-      setIsScrapingUrl(false);
-    }
-  };
-
-  const handleUseInCarousel = (article: any) => {
-    // Converter para formato Article e adicionar aos selecionados
-    const convertedArticle = {
-      id: `scraped-${Date.now()}`,
-      title: article.title,
-      description: article.text.substring(0, 200) + '...',
-      url: article.url,
-      imageUrl: article.images[0] || 'https://images.pexels.com/photos/3184431/pexels-photo-3184431.jpeg?w=400',
-      publishDate: article.extractedAt,
-      source: new URL(article.url).hostname,
-      keywords: ['scraped', 'extracted'],
-      fullContent: article.text
-    };
-
-    // Adicionar aos artigos do store principal
-    const currentArticles = articles;
-    setArticles([...currentArticles, convertedArticle]);
-
-    // Definir como artigo selecionado no IA Generator
-    setSelectedArticle({
-      title: article.title,
-      text: article.text,
-      images: article.images,
-      videos: article.videos,
-      url: article.url,
-      extractedAt: article.extractedAt
-    });
-
-    console.log('✅ Artigo adicionado ao carrossel e selecionado para IA');
   };
 
   return (
@@ -352,203 +320,6 @@ export const ScrapingPanel: React.FC = () => {
           onOpenSettings={() => setShowAPISettings(true)}
         />
       )}
-
-      {/* Scraping Direto de URL */}
-      <motion.div
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        className="bg-[#111111] rounded-xl p-6 border border-gray-800"
-      >
-        <div className="flex items-center gap-3 mb-6">
-          <div className="p-3 bg-green-500/20 rounded-lg">
-            <ExternalLink size={24} className="text-green-400" />
-          </div>
-          <div>
-            <h3 className="text-white font-inter font-semibold text-xl">
-              Scraping Direto de URL
-            </h3>
-            <p className="text-gray-400 font-inter text-sm">
-              Extraia conteúdo completo de qualquer página web para usar no carrossel
-            </p>
-          </div>
-        </div>
-
-        <form onSubmit={handleUrlScraping} className="space-y-4">
-          <div className="flex gap-4">
-            <div className="flex-1">
-              <input
-                type="url"
-                value={scrapingUrl}
-                onChange={(e) => setScrapingUrl(e.target.value)}
-                placeholder="https://exemplo.com/artigo-interessante"
-                className="w-full bg-black border border-gray-700 rounded-lg px-4 py-3 text-white font-inter placeholder-gray-500 focus:outline-none focus:border-[#1500FF] transition-colors"
-                disabled={isScrapingUrl}
-              />
-            </div>
-            
-            <motion.button
-              type="submit"
-              disabled={isScrapingUrl || !scrapingUrl.trim()}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg font-inter font-semibold flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
-            >
-              {isScrapingUrl ? (
-                <>
-                  <Loader size={20} className="animate-spin" />
-                  Extraindo...
-                </>
-              ) : (
-                <>
-                  <Search size={20} />
-                  Extrair Conteúdo
-                </>
-              )}
-            </motion.button>
-          </div>
-
-          {urlScrapingError && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex items-center gap-2 text-red-400 font-inter text-sm bg-red-900/20 p-3 rounded-lg border border-red-800"
-            >
-              <AlertCircle size={16} />
-              {urlScrapingError}
-            </motion.div>
-          )}
-        </form>
-
-        {/* Artigos Extraídos */}
-        {scrapedArticles.length > 0 && (
-          <div className="mt-6">
-            <h4 className="text-white font-inter font-semibold text-lg mb-4">
-              📄 Conteúdo Extraído ({scrapedArticles.length})
-            </h4>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {scrapedArticles.map((article, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ scale: 0.9, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ delay: index * 0.1 }}
-                  className="bg-gradient-to-br from-gray-900 to-black rounded-xl overflow-hidden border border-gray-800 hover:border-gray-700 transition-all duration-300"
-                >
-                  {/* Imagem */}
-                  <div className="relative h-48 overflow-hidden">
-                    <img
-                      src={article.images[0] || 'https://images.pexels.com/photos/3184431/pexels-photo-3184431.jpeg?w=400'}
-                      alt={article.title}
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                    
-                    {/* Badges */}
-                    <div className="absolute top-3 left-3 flex gap-2">
-                      {article.imageCount > 0 && (
-                        <span className="bg-blue-500/80 text-white px-2 py-1 rounded text-xs font-inter flex items-center gap-1">
-                          <Image size={12} />
-                          {article.imageCount}
-                        </span>
-                      )}
-                      {article.videoCount > 0 && (
-                        <span className="bg-red-500/80 text-white px-2 py-1 rounded text-xs font-inter flex items-center gap-1">
-                          <Film size={12} />
-                          {article.videoCount}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Conteúdo */}
-                  <div className="p-6">
-                    <h5 className="text-white font-inter font-semibold text-lg mb-3 line-clamp-2">
-                      {article.title}
-                    </h5>
-                    
-                    <p className="text-gray-300 font-inter text-sm mb-4 line-clamp-4">
-                      {article.text.substring(0, 250)}...
-                    </p>
-
-                    {/* Estatísticas */}
-                    <div className="flex items-center gap-4 mb-4 text-xs font-inter text-gray-400">
-                      <span className="flex items-center gap-1">
-                        <Type size={12} />
-                        {article.textLength.toLocaleString()} chars
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Image size={12} />
-                        {article.imageCount} imgs
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Film size={12} />
-                        {article.videoCount} vídeos
-                      </span>
-                    </div>
-
-                    {/* Botão de Ação */}
-                    <motion.button
-                      onClick={() => handleUseInCarousel(article)}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      className="w-full bg-[#1500FF] hover:bg-blue-600 text-white py-3 rounded-lg font-inter font-semibold flex items-center justify-center gap-2 transition-all duration-200"
-                    >
-                      <CheckCircle size={18} />
-                      Usar no Carrossel
-                    </motion.button>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-
-            {/* Resumo dos Dados Extraídos */}
-            <div className="mt-6 bg-green-900/20 border border-green-800 rounded-lg p-4">
-              <h5 className="text-green-400 font-inter font-semibold text-sm mb-3">
-                📊 Resumo da Extração
-              </h5>
-              
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                <div>
-                  <div className="text-green-400 font-inter font-bold text-lg">
-                    {scrapedArticles.reduce((sum, a) => sum + a.textLength, 0).toLocaleString()}
-                  </div>
-                  <div className="text-gray-400 font-inter text-xs">
-                    Total de Caracteres
-                  </div>
-                </div>
-                
-                <div>
-                  <div className="text-blue-400 font-inter font-bold text-lg">
-                    {scrapedArticles.reduce((sum, a) => sum + a.imageCount, 0)}
-                  </div>
-                  <div className="text-gray-400 font-inter text-xs">
-                    Imagens Encontradas
-                  </div>
-                </div>
-                
-                <div>
-                  <div className="text-red-400 font-inter font-bold text-lg">
-                    {scrapedArticles.reduce((sum, a) => sum + a.videoCount, 0)}
-                  </div>
-                  <div className="text-gray-400 font-inter text-xs">
-                    Vídeos Encontrados
-                  </div>
-                </div>
-                
-                <div>
-                  <div className="text-purple-400 font-inter font-bold text-lg">
-                    {scrapedArticles.length}
-                  </div>
-                  <div className="text-gray-400 font-inter text-xs">
-                    Páginas Processadas
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </motion.div>
 
       {/* Advanced Search Form */}
       <motion.form
@@ -563,10 +334,10 @@ export const ScrapingPanel: React.FC = () => {
           </div>
           <div>
             <h3 className="text-white font-inter font-semibold text-xl">
-              Scraping Pro Avançado com Vídeos
+              Scraping Pro Avançado com IA Viral
             </h3>
             <p className="text-gray-400 font-inter text-sm">
-              Análise temporal profunda + transcrição de vídeos do YouTube, Instagram e TikTok
+              Análise temporal profunda + transcrição de vídeos + score de potencial viral
             </p>
           </div>
         </div>
@@ -604,7 +375,7 @@ export const ScrapingPanel: React.FC = () => {
                 ) : (
                   <>
                     <Search size={20} />
-                    Análise Completa
+                    Análise Completa + IA
                   </>
                 )}
               </motion.button>
@@ -904,7 +675,7 @@ export const ScrapingPanel: React.FC = () => {
                 <span className={`font-inter font-medium text-sm ${
                   hasRequiredAPIs ? 'text-green-400' : 'text-red-400'
                 }`}>
-                  Sistema Inteligente - {hasRequiredAPIs ? 'Fontes Ativas' : 'APIs Não Configuradas'}
+                  Sistema Inteligente + IA Viral - {hasRequiredAPIs ? 'Fontes Ativas' : 'APIs Não Configuradas'}
                 </span>
               </div>
               
@@ -951,8 +722,8 @@ export const ScrapingPanel: React.FC = () => {
                 <span>TikTok</span>
               </div>
               <div className="flex items-center gap-1">
-                <Brain size={12} />
-                <span>Transcrição IA</span>
+                <Sparkles size={12} />
+                <span>IA Viral Score</span>
               </div>
             </div>
           </div>
@@ -977,16 +748,32 @@ export const ScrapingPanel: React.FC = () => {
           >
             <Loader size={16} className="animate-spin" />
             <div>
-              <div className="font-medium">Processamento Avançado com Vídeos...</div>
+              <div className="font-medium">Processamento Avançado com Vídeos e IA...</div>
               <div className="text-xs text-gray-400 mt-1">
-                Coletando conteúdo completo • Análise temporal {getTimeRangeDescription()} • {getAnalysisDescription()} • Transcrevendo vídeos
+                Coletando conteúdo completo • Análise temporal {getTimeRangeDescription()} • {getAnalysisDescription()} • Transcrevendo vídeos • Calculando scores virais
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {isCalculatingViralScores && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-4 flex items-center gap-2 text-purple-400 font-inter text-sm bg-purple-900/20 p-4 rounded-lg border border-purple-800"
+          >
+            <Sparkles size={16} className="animate-pulse" />
+            <div>
+              <div className="font-medium">🧠 IA Calculando Scores de Potencial Viral...</div>
+              <div className="text-xs text-gray-400 mt-1">
+                Analisando emoção • Clareza • Potencial de carrossel • Tendência • Autoridade da fonte
               </div>
             </div>
           </motion.div>
         )}
       </motion.form>
 
-      {/* Advanced Trend Analysis with Video Stats */}
+      {/* Advanced Trend Analysis with Video and Viral Stats */}
       {trendData.length > 0 && (
         <motion.div
           initial={{ y: 20, opacity: 0 }}
@@ -995,7 +782,7 @@ export const ScrapingPanel: React.FC = () => {
         >
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-white font-inter font-semibold text-lg">
-              📊 Análise Temporal Avançada com Vídeos
+              📊 Análise Temporal Avançada com Vídeos e IA Viral
             </h3>
             <div className="text-gray-400 font-inter text-sm">
               Período: {getTimeRangeDescription()} • {getAnalysisDescription()}
@@ -1131,6 +918,70 @@ export const ScrapingPanel: React.FC = () => {
             );
           })()}
 
+          {/* Viral Score Statistics */}
+          {(() => {
+            const viralStats = getViralScoreStats();
+            if (!viralStats) return null;
+            
+            return (
+              <div className="bg-orange-900/20 border border-orange-800 rounded-lg p-4 mb-6">
+                <div className="flex items-center gap-2 mb-3">
+                  <Sparkles size={16} className="text-orange-400" />
+                  <h4 className="text-orange-400 font-inter font-semibold text-sm">
+                    Análise de Potencial Viral (IA)
+                  </h4>
+                </div>
+                
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
+                  <div>
+                    <div className="text-orange-400 font-inter font-bold text-lg">
+                      {viralStats.avgScore}
+                    </div>
+                    <div className="text-gray-400 font-inter text-xs">
+                      Score Médio
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <div className="text-green-400 font-inter font-bold text-lg">
+                      {viralStats.highViralCount}
+                    </div>
+                    <div className="text-gray-400 font-inter text-xs">
+                      Alto Potencial (7+)
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <div className="text-yellow-400 font-inter font-bold text-lg">
+                      {viralStats.mediumViralCount}
+                    </div>
+                    <div className="text-gray-400 font-inter text-xs">
+                      Médio Potencial (5-7)
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <div className="text-red-400 font-inter font-bold text-lg">
+                      {viralStats.lowViralCount}
+                    </div>
+                    <div className="text-gray-400 font-inter text-xs">
+                      Baixo Potencial (&lt;5)
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <div className="text-blue-400 font-inter font-bold text-lg">
+                      {viralStats.totalAnalyzed}
+                    </div>
+                    <div className="text-gray-400 font-inter text-xs">
+                      Total Analisado
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
           <div className="bg-[#1500FF]/10 border border-[#1500FF]/20 rounded-lg p-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
               <div>
@@ -1185,7 +1036,7 @@ export const ScrapingPanel: React.FC = () => {
       )}
 
       {/* Empty State */}
-      {!isAnalyzing && articles.length === 0 && !scrapingError && scrapedArticles.length === 0 && (
+      {!isAnalyzing && articles.length === 0 && !scrapingError && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -1196,18 +1047,22 @@ export const ScrapingPanel: React.FC = () => {
             <div className="absolute -top-2 -right-2 w-6 h-6 bg-[#1500FF] rounded-full flex items-center justify-center">
               <Video size={12} className="text-white" />
             </div>
+            <div className="absolute -bottom-2 -left-2 w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center">
+              <Sparkles size={12} className="text-white" />
+            </div>
           </div>
           <h3 className="text-white font-inter font-semibold text-xl mb-3">
-            Scraping Pro Avançado com Transcrição de Vídeos
+            Scraping Pro Avançado com IA Viral
           </h3>
           <p className="text-gray-400 font-inter text-lg mb-6">
-            Análise profunda de tendências com conteúdo completo + vídeos transcritos
+            Análise profunda de tendências com conteúdo completo + vídeos transcritos + score viral
           </p>
           <div className="text-gray-500 font-inter text-sm space-y-1">
             <p>🔍 Scraping de múltiplas fontes com análise temporal</p>
             <p>📄 Extração de conteúdo completo dos artigos</p>
             <p>🎥 Busca e transcrição de vídeos do YouTube, Instagram e TikTok</p>
             <p>🧠 Análise de sentimentos e predições com IA</p>
+            <p>✨ Score de potencial viral com 5 métricas de IA</p>
             <p>📊 Configuração flexível de período e profundidade</p>
             <p>⚡ Dados de Google, Twitter, Reddit, News e plataformas de vídeo</p>
           </div>
