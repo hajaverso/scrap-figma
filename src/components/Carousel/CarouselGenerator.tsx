@@ -3,7 +3,10 @@ import { motion } from 'framer-motion';
 import { Wand2, Loader, AlertCircle, Sparkles, Settings, Brain, Check, Globe, Hash, Download, ExternalLink, Grid, Eye } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { openAIService } from '../../services/openAIService';
+import { apiConfigService } from '../../services/apiConfigService';
 import { APIKeyModal } from './APIKeyModal';
+import { APIWarning } from '../Common/APIWarning';
+import { APISettingsModal } from '../Settings/APISettingsModal';
 import { CarouselPreview1080x1440 } from './CarouselPreview1080x1440';
 
 export const CarouselGenerator: React.FC = () => {
@@ -20,13 +23,19 @@ export const CarouselGenerator: React.FC = () => {
   const [selectedLanguage, setSelectedLanguage] = useState<'pt' | 'en' | 'es'>('pt');
   const [cardCount, setCardCount] = useState(5);
   const [showAPIModal, setShowAPIModal] = useState(false);
+  const [showAPISettings, setShowAPISettings] = useState(false);
   const [isAIEnabled, setIsAIEnabled] = useState(false);
   const [lastGeneratedCarousel, setLastGeneratedCarousel] = useState<any>(null);
   const [viewMode, setViewMode] = useState<'preview' | 'grid'>('grid');
 
+  // Verificar APIs configuradas
+  const requiredAPIs = ['openaiKey'] as const;
+  const apiWarning = apiConfigService.getWarningMessage(requiredAPIs);
+  const hasOpenAI = apiConfigService.isConfigured('openaiKey');
+
   React.useEffect(() => {
-    setIsAIEnabled(openAIService.isConfigured());
-  }, []);
+    setIsAIEnabled(openAIService.isConfigured() && hasOpenAI);
+  }, [hasOpenAI]);
 
   React.useEffect(() => {
     if (generatedCarousels.length > 0) {
@@ -70,14 +79,15 @@ export const CarouselGenerator: React.FC = () => {
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!isAIEnabled) {
-      setShowAPIModal(true);
-      return;
-    }
-
     // Verificar se temos artigos suficientes
     if (selectedArticles.length === 0) {
       alert('Selecione pelo menos um artigo para gerar o carrossel');
+      return;
+    }
+
+    // Verificar se OpenAI está configurada para IA
+    if (!hasOpenAI && isAIEnabled) {
+      setShowAPISettings(true);
       return;
     }
 
@@ -90,11 +100,11 @@ export const CarouselGenerator: React.FC = () => {
     console.log(`📚 Artigos disponíveis: ${selectedArticles.length}`);
 
     const fullPrompt = `${prompt} | Estilo: ${selectedStyle} | Idioma: ${selectedLanguage} | Cards: ${actualCardCount}`;
-    await generateCarousel(fullPrompt, selectedStyle, isAIEnabled, actualCardCount, selectedLanguage);
+    await generateCarousel(fullPrompt, selectedStyle, isAIEnabled && hasOpenAI, actualCardCount, selectedLanguage);
   };
 
   const handleAPIKeySaved = () => {
-    setIsAIEnabled(openAIService.isConfigured());
+    setIsAIEnabled(openAIService.isConfigured() && apiConfigService.isConfigured('openaiKey'));
   };
 
   const handleExportToFigma = () => {
@@ -127,30 +137,38 @@ export const CarouselGenerator: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* API Warning for OpenAI */}
+      {apiWarning && (
+        <APIWarning
+          message={apiWarning}
+          onOpenSettings={() => setShowAPISettings(true)}
+        />
+      )}
+
       {/* AI Status Banner */}
       <motion.div
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         className={`${
-          isAIEnabled 
+          isAIEnabled && hasOpenAI
             ? 'bg-green-900/20 border-green-800' 
             : 'bg-yellow-900/20 border-yellow-800'
         } rounded-xl p-4 border flex items-center justify-between`}
       >
         <div className="flex items-center gap-3">
           <div className={`p-2 rounded-lg ${
-            isAIEnabled ? 'bg-green-500/20' : 'bg-yellow-500/20'
+            isAIEnabled && hasOpenAI ? 'bg-green-500/20' : 'bg-yellow-500/20'
           }`}>
-            <Brain size={20} className={isAIEnabled ? 'text-green-400' : 'text-yellow-400'} />
+            <Brain size={20} className={isAIEnabled && hasOpenAI ? 'text-green-400' : 'text-yellow-400'} />
           </div>
           <div>
             <h3 className={`font-inter font-medium text-sm ${
-              isAIEnabled ? 'text-green-400' : 'text-yellow-400'
+              isAIEnabled && hasOpenAI ? 'text-green-400' : 'text-yellow-400'
             }`}>
-              {isAIEnabled ? 'IA Configurada' : 'IA Não Configurada'}
+              {isAIEnabled && hasOpenAI ? 'IA Configurada' : 'IA Não Configurada'}
             </h3>
             <p className="text-gray-400 font-inter text-xs">
-              {isAIEnabled 
+              {isAIEnabled && hasOpenAI
                 ? 'OpenAI conectada - Carrosséis inteligentes habilitados' 
                 : 'Configure sua API key da OpenAI para usar geração inteligente'
               }
@@ -159,11 +177,11 @@ export const CarouselGenerator: React.FC = () => {
         </div>
 
         <button
-          onClick={() => setShowAPIModal(true)}
+          onClick={() => setShowAPISettings(true)}
           className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-lg font-inter font-medium text-sm transition-all duration-200"
         >
           <Settings size={16} />
-          {isAIEnabled ? 'Gerenciar' : 'Configurar'}
+          {isAIEnabled && hasOpenAI ? 'Gerenciar' : 'Configurar'}
         </button>
       </motion.div>
 
@@ -333,13 +351,13 @@ export const CarouselGenerator: React.FC = () => {
         {/* Prompt Input */}
         <div className="mb-6">
           <label className="block text-gray-300 font-inter font-medium text-sm mb-3">
-            Prompt Personalizado {isAIEnabled && <span className="text-[#1500FF]">(IA Habilitada)</span>}
+            Prompt Personalizado {isAIEnabled && hasOpenAI && <span className="text-[#1500FF]">(IA Habilitada)</span>}
           </label>
           
           <textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            placeholder={isAIEnabled 
+            placeholder={isAIEnabled && hasOpenAI
               ? "Descreva como deseja que seja o carrossel... (ex: foco em CTAs, tom profissional, cores corporativas, público jovem...)"
               : "Descreva como deseja que seja o carrossel... (configuração básica sem IA)"
             }
@@ -348,7 +366,7 @@ export const CarouselGenerator: React.FC = () => {
             disabled={isGeneratingCarousel}
           />
           
-          {isAIEnabled && (
+          {isAIEnabled && hasOpenAI && (
             <p className="text-gray-500 font-inter text-xs mt-2">
               💡 A IA irá otimizar títulos, descrições e cores baseado no seu prompt
             </p>
@@ -366,11 +384,11 @@ export const CarouselGenerator: React.FC = () => {
           {isGeneratingCarousel ? (
             <>
               <Loader size={20} className="animate-spin" />
-              {isAIEnabled ? 'Gerando com IA...' : 'Gerando Carrossel...'}
+              {isAIEnabled && hasOpenAI ? 'Gerando com IA...' : 'Gerando Carrossel...'}
             </>
           ) : (
             <>
-              {isAIEnabled ? <Brain size={20} /> : <Sparkles size={20} />}
+              {isAIEnabled && hasOpenAI ? <Brain size={20} /> : <Sparkles size={20} />}
               Gerar Carrossel ({Math.min(cardCount, selectedArticles.length)} cards)
             </>
           )}
@@ -402,7 +420,7 @@ export const CarouselGenerator: React.FC = () => {
                 Carrossel Gerado ({lastGeneratedCarousel.length} cards)
               </h3>
               <p className="text-gray-400 font-inter text-sm">
-                Estilo: {selectedStyle} • Idioma: {selectedLanguage} • {isAIEnabled ? 'IA Habilitada' : 'Geração Básica'}
+                Estilo: {selectedStyle} • Idioma: {selectedLanguage} • {isAIEnabled && hasOpenAI ? 'IA Habilitada' : 'Geração Básica'}
               </p>
             </div>
 
@@ -595,7 +613,7 @@ export const CarouselGenerator: React.FC = () => {
               
               <div>
                 <div className="text-blue-400 font-inter font-bold text-lg">
-                  {isAIEnabled ? 'IA' : 'Básico'}
+                  {isAIEnabled && hasOpenAI ? 'IA' : 'Básico'}
                 </div>
                 <div className="text-gray-400 font-inter text-xs">
                   Modo de Geração
@@ -615,7 +633,13 @@ export const CarouselGenerator: React.FC = () => {
         </motion.div>
       )}
 
-      {/* API Key Modal */}
+      {/* API Settings Modal */}
+      <APISettingsModal
+        isOpen={showAPISettings}
+        onClose={() => setShowAPISettings(false)}
+      />
+
+      {/* Legacy API Key Modal */}
       <APIKeyModal
         isOpen={showAPIModal}
         onClose={() => setShowAPIModal(false)}

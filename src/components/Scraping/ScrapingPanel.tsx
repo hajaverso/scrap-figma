@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Loader, AlertCircle, TrendingUp, Globe, Zap, Brain, BarChart3, Target, Calendar, Clock, Filter, FileText, Eye, Download, Video, Play, Music } from 'lucide-react';
+import { Search, Loader, AlertCircle, TrendingUp, Globe, Zap, Brain, BarChart3, Target, Calendar, Clock, Filter, FileText, Eye, Download, Video, Play, Music, Settings } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { ArticleTable } from './ArticleTable';
 import { apifyService } from '../../services/apifyService';
+import { apiConfigService } from '../../services/apiConfigService';
+import { APIWarning } from '../Common/APIWarning';
+import { APISettingsModal } from '../Settings/APISettingsModal';
 
 export const ScrapingPanel: React.FC = () => {
   const {
@@ -27,6 +30,12 @@ export const ScrapingPanel: React.FC = () => {
   const [minEngagement, setMinEngagement] = useState(10);
   const [includeVideos, setIncludeVideos] = useState(true);
   const [videoTranscription, setVideoTranscription] = useState(true);
+  const [showAPISettings, setShowAPISettings] = useState(false);
+
+  // Verificar APIs configuradas
+  const requiredAPIs = ['apifyKey', 'serpApiKey'] as const;
+  const apiWarning = apiConfigService.getWarningMessage(requiredAPIs);
+  const hasRequiredAPIs = !apiWarning;
 
   const trendingCategories = [
     {
@@ -99,6 +108,12 @@ export const ScrapingPanel: React.FC = () => {
     e.preventDefault();
     if (!searchKeyword.trim()) return;
 
+    // Verificar se as APIs necessárias estão configuradas
+    if (!hasRequiredAPIs) {
+      setScrapingError('Configure as APIs necessárias antes de continuar');
+      return;
+    }
+
     setIsAnalyzing(true);
     setScrapingError(null);
 
@@ -142,7 +157,7 @@ export const ScrapingPanel: React.FC = () => {
       
     } catch (error) {
       console.error('❌ Erro na análise avançada:', error);
-      setScrapingError('Erro na análise avançada. Tente novamente com configurações diferentes.');
+      setScrapingError('Erro na análise avançada. Verifique suas configurações de API e tente novamente.');
     } finally {
       setIsAnalyzing(false);
     }
@@ -222,6 +237,14 @@ export const ScrapingPanel: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* API Warning */}
+      {apiWarning && (
+        <APIWarning
+          message={apiWarning}
+          onOpenSettings={() => setShowAPISettings(true)}
+        />
+      )}
+
       {/* Advanced Search Form */}
       <motion.form
         initial={{ y: 20, opacity: 0 }}
@@ -256,14 +279,14 @@ export const ScrapingPanel: React.FC = () => {
                 onChange={(e) => setSearchKeyword(e.target.value)}
                 placeholder="Digite o tema principal (ex: AI, design, startup...)"
                 className="w-full bg-black border border-gray-700 rounded-lg px-4 py-3 text-white font-inter placeholder-gray-500 focus:outline-none focus:border-[#1500FF] transition-colors"
-                disabled={isAnalyzing}
+                disabled={isAnalyzing || !hasRequiredAPIs}
               />
             </div>
             
             <div className="flex items-end">
               <motion.button
                 type="submit"
-                disabled={isAnalyzing || !searchKeyword.trim()}
+                disabled={isAnalyzing || !searchKeyword.trim() || !hasRequiredAPIs}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 className="bg-[#1500FF] text-white px-8 py-3 rounded-lg font-inter font-semibold flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:bg-blue-600"
@@ -302,8 +325,8 @@ export const ScrapingPanel: React.FC = () => {
                     onClick={() => setTimeRange(option.value as any)}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    disabled={isAnalyzing}
-                    className={`p-3 rounded-lg border text-left transition-all duration-200 ${
+                    disabled={isAnalyzing || !hasRequiredAPIs}
+                    className={`p-3 rounded-lg border text-left transition-all duration-200 disabled:opacity-50 ${
                       timeRange === option.value
                         ? 'border-[#1500FF] bg-[#1500FF]/10'
                         : 'border-gray-700 hover:border-gray-600'
@@ -345,8 +368,8 @@ export const ScrapingPanel: React.FC = () => {
                       onClick={() => setAnalysisDepth(option.value as any)}
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      disabled={isAnalyzing}
-                      className={`w-full p-3 rounded-lg border text-left transition-all duration-200 ${
+                      disabled={isAnalyzing || !hasRequiredAPIs}
+                      className={`w-full p-3 rounded-lg border text-left transition-all duration-200 disabled:opacity-50 ${
                         analysisDepth === option.value
                           ? 'border-[#1500FF] bg-[#1500FF]/10'
                           : 'border-gray-700 hover:border-gray-600'
@@ -386,8 +409,9 @@ export const ScrapingPanel: React.FC = () => {
                 <motion.button
                   type="button"
                   onClick={() => setIncludeFullContent(!includeFullContent)}
+                  disabled={!hasRequiredAPIs}
                   whileTap={{ scale: 0.95 }}
-                  className={`w-12 h-6 rounded-full transition-all duration-200 ${
+                  className={`w-12 h-6 rounded-full transition-all duration-200 disabled:opacity-50 ${
                     includeFullContent ? 'bg-[#1500FF]' : 'bg-gray-600'
                   }`}
                 >
@@ -413,8 +437,9 @@ export const ScrapingPanel: React.FC = () => {
                 <motion.button
                   type="button"
                   onClick={() => setIncludeVideos(!includeVideos)}
+                  disabled={!hasRequiredAPIs}
                   whileTap={{ scale: 0.95 }}
-                  className={`w-12 h-6 rounded-full transition-all duration-200 ${
+                  className={`w-12 h-6 rounded-full transition-all duration-200 disabled:opacity-50 ${
                     includeVideos ? 'bg-[#1500FF]' : 'bg-gray-600'
                   }`}
                 >
@@ -440,11 +465,11 @@ export const ScrapingPanel: React.FC = () => {
                 <motion.button
                   type="button"
                   onClick={() => setVideoTranscription(!videoTranscription)}
+                  disabled={!includeVideos || !hasRequiredAPIs}
                   whileTap={{ scale: 0.95 }}
-                  disabled={!includeVideos}
-                  className={`w-12 h-6 rounded-full transition-all duration-200 ${
+                  className={`w-12 h-6 rounded-full transition-all duration-200 disabled:opacity-50 ${
                     videoTranscription && includeVideos ? 'bg-[#1500FF]' : 'bg-gray-600'
-                  } ${!includeVideos ? 'opacity-50' : ''}`}
+                  }`}
                 >
                   <div className={`w-5 h-5 bg-white rounded-full transition-all duration-200 ${
                     videoTranscription && includeVideos ? 'translate-x-6' : 'translate-x-0.5'
@@ -467,8 +492,8 @@ export const ScrapingPanel: React.FC = () => {
               <select
                 value={sourcePriority}
                 onChange={(e) => setSourcePriority(e.target.value as any)}
-                disabled={isAnalyzing}
-                className="w-full bg-black border border-gray-700 rounded-lg px-3 py-2 text-white font-inter text-sm focus:outline-none focus:border-[#1500FF]"
+                disabled={isAnalyzing || !hasRequiredAPIs}
+                className="w-full bg-black border border-gray-700 rounded-lg px-3 py-2 text-white font-inter text-sm focus:outline-none focus:border-[#1500FF] disabled:opacity-50"
               >
                 {sourcePriorityOptions.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -494,8 +519,8 @@ export const ScrapingPanel: React.FC = () => {
                 max="100"
                 value={minEngagement}
                 onChange={(e) => setMinEngagement(parseInt(e.target.value))}
-                disabled={isAnalyzing}
-                className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
+                disabled={isAnalyzing || !hasRequiredAPIs}
+                className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider disabled:opacity-50"
               />
               <span className="text-gray-400 font-inter text-xs">
                 Filtrar conteúdo com baixo engajamento
@@ -514,9 +539,10 @@ export const ScrapingPanel: React.FC = () => {
                   <motion.button
                     key={keyword}
                     onClick={() => handleKeywordToggle(keyword)}
+                    disabled={!hasRequiredAPIs}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    className="bg-[#1500FF] text-white px-3 py-1 rounded-full font-inter text-sm flex items-center gap-2"
+                    className="bg-[#1500FF] text-white px-3 py-1 rounded-full font-inter text-sm flex items-center gap-2 disabled:opacity-50"
                   >
                     {keyword}
                     <span className="text-xs">×</span>
@@ -541,7 +567,7 @@ export const ScrapingPanel: React.FC = () => {
                     onClick={() => handleCategorySelect(category.keywords)}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    disabled={isAnalyzing}
+                    disabled={isAnalyzing || !hasRequiredAPIs}
                     className="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-4 text-left transition-all duration-200 disabled:opacity-50 group"
                   >
                     <div className="flex items-center gap-3 mb-2">
@@ -560,16 +586,24 @@ export const ScrapingPanel: React.FC = () => {
           </div>
 
           {/* Data Sources Info */}
-          <div className="bg-green-900/20 border border-green-800 rounded-lg p-4">
+          <div className={`rounded-lg p-4 ${
+            hasRequiredAPIs 
+              ? 'bg-green-900/20 border border-green-800' 
+              : 'bg-red-900/20 border border-red-800'
+          }`}>
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-3">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                <span className="text-green-400 font-inter font-medium text-sm">
-                  Sistema Inteligente - Fontes Ativas
+                <div className={`w-2 h-2 rounded-full ${
+                  hasRequiredAPIs ? 'bg-green-500 animate-pulse' : 'bg-red-500'
+                }`} />
+                <span className={`font-inter font-medium text-sm ${
+                  hasRequiredAPIs ? 'text-green-400' : 'text-red-400'
+                }`}>
+                  Sistema Inteligente - {hasRequiredAPIs ? 'Fontes Ativas' : 'APIs Não Configuradas'}
                 </span>
               </div>
               
-              {trendData.length > 0 && (
+              {trendData.length > 0 && hasRequiredAPIs && (
                 <motion.button
                   onClick={exportAnalysis}
                   whileHover={{ scale: 1.05 }}
@@ -874,6 +908,12 @@ export const ScrapingPanel: React.FC = () => {
           </div>
         </motion.div>
       )}
+
+      {/* API Settings Modal */}
+      <APISettingsModal
+        isOpen={showAPISettings}
+        onClose={() => setShowAPISettings(false)}
+      />
     </div>
   );
 };
