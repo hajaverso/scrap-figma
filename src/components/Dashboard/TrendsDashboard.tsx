@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { TrendingUp, TrendingDown, BarChart3, Brain, Zap, Globe, Filter, RefreshCw, Download, Eye, Search, Loader } from 'lucide-react';
+import { TrendingUp, TrendingDown, BarChart3, Brain, Zap, Globe, Filter, RefreshCw, Download, Eye, Search, Loader, Database } from 'lucide-react';
 import { RelevanceChart } from './RelevanceChart';
 import { PredictionPanel } from './PredictionPanel';
 import { TrendCards } from './TrendCards';
 import { AnalyticsOverview } from './AnalyticsOverview';
+import { CacheStatsPanel } from './CacheStatsPanel';
 import { apifyService } from '../../services/apifyService';
 
 interface TrendData {
@@ -27,6 +28,8 @@ export const TrendsDashboard: React.FC = () => {
   const [customKeyword, setCustomKeyword] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [showCacheStats, setShowCacheStats] = useState(false);
+  const [forceRefresh, setForceRefresh] = useState(false);
 
   const categories = [
     { id: 'all', name: 'Todos', icon: Globe },
@@ -64,13 +67,33 @@ export const TrendsDashboard: React.FC = () => {
       
       // Usar palavras-chave baseadas na categoria
       const keywords = getKeywordsByCategory(selectedCategory);
-      const trendData = await apifyService.scrapeTrends(keywords);
+      
+      const config = {
+        keywords: keywords.slice(0, 5),
+        timeRange: selectedTimeframe as any,
+        analysisDepth: 'detailed' as const,
+        includeFullContent: true,
+        sourcePriority: 'all' as const,
+        minEngagement: 10,
+        maxArticlesPerSource: 15,
+        includeVideos: true,
+        videoTranscription: true
+      };
+
+      const trendData = forceRefresh 
+        ? await apifyService.forceRefresh(config)
+        : await apifyService.scrapeAdvancedTrends(config);
+      
       const predictionData = await apifyService.generatePredictions(trendData);
       
       setTrends(trendData);
       setPredictions(predictionData);
       
       console.log('✅ Trends carregados:', trendData.length);
+      
+      if (forceRefresh) {
+        setForceRefresh(false);
+      }
     } catch (error) {
       console.error('❌ Erro ao carregar trends:', error);
       setSearchError('Erro ao carregar dados. Usando dados de exemplo.');
@@ -92,8 +115,22 @@ export const TrendsDashboard: React.FC = () => {
     try {
       console.log(`🔍 Buscando análise para: "${customKeyword}"`);
       
-      // Buscar trends para a palavra-chave personalizada
-      const trendData = await apifyService.scrapeTrends([customKeyword.trim()]);
+      const config = {
+        keywords: [customKeyword.trim()],
+        timeRange: selectedTimeframe as any,
+        analysisDepth: 'comprehensive' as const,
+        includeFullContent: true,
+        sourcePriority: 'all' as const,
+        minEngagement: 5,
+        maxArticlesPerSource: 20,
+        includeVideos: true,
+        videoTranscription: true
+      };
+
+      const trendData = forceRefresh 
+        ? await apifyService.forceRefresh(config)
+        : await apifyService.scrapeAdvancedTrends(config);
+      
       const predictionData = await apifyService.generatePredictions(trendData);
       
       if (trendData.length === 0) {
@@ -104,6 +141,10 @@ export const TrendsDashboard: React.FC = () => {
       setPredictions(predictionData);
       
       console.log(`✅ Análise concluída para "${customKeyword}"`);
+      
+      if (forceRefresh) {
+        setForceRefresh(false);
+      }
       
     } catch (error) {
       console.error('❌ Erro na busca personalizada:', error);
@@ -117,9 +158,21 @@ export const TrendsDashboard: React.FC = () => {
     try {
       const keywords = customKeyword.trim() 
         ? [customKeyword.trim()] 
-        : getKeywordsByCategory(selectedCategory).slice(0, 5);
+        : getKeywordsByCategory(selectedCategory).slice(0, 3);
       
-      const trendData = await apifyService.scrapeTrends(keywords);
+      const config = {
+        keywords,
+        timeRange: selectedTimeframe as any,
+        analysisDepth: 'detailed' as const,
+        includeFullContent: true,
+        sourcePriority: 'all' as const,
+        minEngagement: 10,
+        maxArticlesPerSource: 15,
+        includeVideos: true,
+        videoTranscription: true
+      };
+
+      const trendData = await apifyService.scrapeAdvancedTrends(config);
       
       // Atualizar apenas alguns trends para economizar recursos
       setTrends(prevTrends => {
@@ -133,6 +186,15 @@ export const TrendsDashboard: React.FC = () => {
       });
     } catch (error) {
       console.error('Erro no refresh:', error);
+    }
+  };
+
+  const handleForceRefresh = () => {
+    setForceRefresh(true);
+    if (customKeyword.trim()) {
+      handleCustomKeywordSearch(new Event('submit') as any);
+    } else {
+      loadInitialTrends();
     }
   };
 
@@ -179,10 +241,12 @@ export const TrendsDashboard: React.FC = () => {
       customKeyword: customKeyword || null,
       trends,
       predictions,
+      cacheStats: apifyService.getCacheStats(),
       metadata: {
         timeframe: selectedTimeframe,
         category: selectedCategory,
-        totalSources: trends.reduce((acc, trend) => acc + trend.sources.length, 0)
+        totalSources: trends.reduce((acc, trend) => acc + trend.sources.length, 0),
+        forceRefreshUsed: forceRefresh
       }
     };
 
@@ -209,11 +273,25 @@ export const TrendsDashboard: React.FC = () => {
               Analytics & Trends Dashboard
             </h1>
             <p className="text-gray-400 font-inter">
-              Análise profissional de tendências com scraping inteligente
+              Análise profissional de tendências com cache inteligente
             </p>
           </div>
 
           <div className="flex items-center gap-3">
+            <motion.button
+              onClick={() => setShowCacheStats(!showCacheStats)}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-inter font-medium text-sm transition-all duration-200 ${
+                showCacheStats 
+                  ? 'bg-blue-600 text-white' 
+                  : 'bg-gray-800 text-gray-400 hover:text-white'
+              }`}
+            >
+              <Database size={16} />
+              Cache Stats
+            </motion.button>
+
             <motion.button
               onClick={() => setAutoRefresh(!autoRefresh)}
               whileHover={{ scale: 1.05 }}
@@ -250,7 +328,7 @@ export const TrendsDashboard: React.FC = () => {
           <div className="flex items-center gap-3 mb-3">
             <Search size={20} className="text-[#1500FF]" />
             <h3 className="text-white font-inter font-semibold text-lg">
-              Busca Personalizada
+              Busca Personalizada com Cache
             </h3>
           </div>
           
@@ -282,6 +360,19 @@ export const TrendsDashboard: React.FC = () => {
                   Analisar
                 </>
               )}
+            </motion.button>
+
+            <motion.button
+              type="button"
+              onClick={handleForceRefresh}
+              disabled={isSearching || isLoading}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-3 rounded-lg font-inter font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+              title="Forçar atualização (ignora cache)"
+            >
+              <RefreshCw size={18} />
+              Forçar
             </motion.button>
           </div>
 
@@ -348,14 +439,18 @@ export const TrendsDashboard: React.FC = () => {
               onChange={(e) => setSelectedTimeframe(e.target.value)}
               className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1 text-white font-inter text-sm focus:outline-none focus:border-[#1500FF]"
             >
-              <option value="24h">24 horas</option>
+              <option value="1d">24 horas</option>
+              <option value="3d">3 dias</option>
               <option value="7d">7 dias</option>
+              <option value="14d">14 dias</option>
               <option value="30d">30 dias</option>
-              <option value="90d">90 dias</option>
             </select>
           </div>
         </div>
       </motion.div>
+
+      {/* Cache Stats Panel */}
+      {showCacheStats && <CacheStatsPanel />}
 
       {/* Analytics Overview */}
       <AnalyticsOverview trends={trends} isLoading={isLoading || isSearching} />
@@ -402,6 +497,9 @@ export const TrendsDashboard: React.FC = () => {
                     : 'Coletando dados de múltiplas fontes...'
                   }
                 </p>
+                <div className="mt-3 text-xs text-gray-500 font-inter">
+                  {forceRefresh ? '🔄 Ignorando cache - Dados frescos' : '📦 Verificando cache primeiro'}
+                </div>
               </div>
             </motion.div>
           </motion.div>
