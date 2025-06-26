@@ -1,3 +1,5 @@
+// src/components/Scraping/ArticleTable.tsx
+
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ExternalLink, Calendar, Tag, Check, FileText, Eye, EyeOff, TrendingUp, Users, Clock, Sparkles, Brain, Target, Palette, MessageSquare } from 'lucide-react';
@@ -11,6 +13,21 @@ export const ArticleTable: React.FC = () => {
   const { setSelectedArticle } = useIAGeneratorStore();
   const [expandedArticle, setExpandedArticle] = useState<string | null>(null);
   const [showFullContent, setShowFullContent] = useState<{ [key: string]: boolean }>({});
+
+  // Funções utilitárias para datas seguras
+  function formatPublishDate(dateString?: string) {
+    if (!dateString) return "Data indisponível";
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "Data indisponível";
+    return format(date, 'dd/MM/yyyy', { locale: ptBR });
+  }
+
+  function formatPublishTime(dateString?: string) {
+    if (!dateString) return "--:--";
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "--:--";
+    return format(date, 'HH:mm', { locale: ptBR });
+  }
 
   const isSelected = (articleId: string) => 
     selectedArticles.some(a => a.id === articleId);
@@ -73,7 +90,6 @@ export const ArticleTable: React.FC = () => {
     };
 
     setSelectedArticle(selectedArticleData);
-    
     // Opcional: mostrar feedback visual
     console.log('Artigo enviado para o IA Generator:', selectedArticleData);
   };
@@ -294,11 +310,11 @@ export const ArticleTable: React.FC = () => {
                   <td className="py-4 px-6">
                     <div className="flex items-center gap-1 text-gray-400 font-inter text-sm mb-1">
                       <Calendar size={14} />
-                      {format(new Date(article.publishDate), 'dd/MM/yyyy', { locale: ptBR })}
+                      {formatPublishDate(article.publishDate)}
                     </div>
                     <div className="flex items-center gap-1 text-gray-500 font-inter text-xs">
                       <Clock size={12} />
-                      {format(new Date(article.publishDate), 'HH:mm', { locale: ptBR })}
+                      {formatPublishTime(article.publishDate)}
                     </div>
                   </td>
 
