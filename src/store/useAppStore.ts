@@ -114,7 +114,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ isScrapingLoading: true, scrapingError: null, articles: [] });
     
     try {
-      console.log(`🔍 Iniciando scraping avançado com Apify para: "${searchKeyword}"`);
+      console.log(`🔍 Iniciando scraping avançado para: "${searchKeyword}"`);
       
       // Configuração padrão para scraping básico
       const config = {

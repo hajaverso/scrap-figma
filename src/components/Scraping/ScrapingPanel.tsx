@@ -100,7 +100,7 @@ export const ScrapingPanel: React.FC = () => {
     setScrapingError(null);
 
     try {
-      console.log('🚀 Iniciando análise avançada com Apify...');
+      console.log('🚀 Iniciando análise avançada...');
       console.log(`📊 Configurações:`, {
         keyword: searchKeyword,
         additionalKeywords: selectedKeywords,
@@ -111,7 +111,7 @@ export const ScrapingPanel: React.FC = () => {
         minEngagement
       });
       
-      // Configurar parâmetros avançados para o Apify
+      // Configurar parâmetros avançados para o sistema
       const searchConfig = {
         keywords: [searchKeyword, ...selectedKeywords].slice(0, 8),
         timeRange,
@@ -210,7 +210,7 @@ export const ScrapingPanel: React.FC = () => {
           </div>
           <div>
             <h3 className="text-white font-inter font-semibold text-xl">
-              Scraping Pro Avançado com Apify
+              Scraping Pro Avançado
             </h3>
             <p className="text-gray-400 font-inter text-sm">
               Análise temporal profunda com conteúdo completo dos artigos
@@ -485,7 +485,7 @@ export const ScrapingPanel: React.FC = () => {
               <div className="flex items-center gap-3">
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
                 <span className="text-green-400 font-inter font-medium text-sm">
-                  Apify Pro - Fontes Ativas
+                  Sistema Inteligente - Fontes Ativas
                 </span>
               </div>
               
@@ -558,7 +558,7 @@ export const ScrapingPanel: React.FC = () => {
           >
             <Loader size={16} className="animate-spin" />
             <div>
-              <div className="font-medium">Processamento Avançado com Apify...</div>
+              <div className="font-medium">Processamento Avançado...</div>
               <div className="text-xs text-gray-400 mt-1">
                 Coletando conteúdo completo • Análise temporal {getTimeRangeDescription()} • {getAnalysisDescription()}
               </div>

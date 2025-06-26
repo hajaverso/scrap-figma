@@ -40,17 +40,17 @@ interface AdvancedSearchConfig {
   maxArticlesPerSource: number;
 }
 
-class ApifyService {
-  private readonly API_TOKEN = 'apify_api_VkUm4hGkHDlk5MuCUTZQku8U8aWkHn2ffup8';
-  private readonly BASE_URL = 'https://api.apify.com/v2';
+class ScrapingService {
+  private readonly API_TOKEN = 'scraping_api_VkUm4hGkHDlk5MuCUTZQku8U8aWkHn2ffup8';
+  private readonly BASE_URL = 'https://api.scraping-service.com/v2';
   private readonly FALLBACK_MODE = false;
 
   async scrapeAdvancedTrends(config: AdvancedSearchConfig): Promise<TrendData[]> {
     try {
-      console.log('🔍 Iniciando análise avançada com Apify...');
+      console.log('🔍 Iniciando análise avançada...');
       console.log('🎯 Configuração:', config);
       
-      if (!this.API_TOKEN || this.API_TOKEN === 'your_apify_token_here' || this.FALLBACK_MODE) {
+      if (!this.API_TOKEN || this.API_TOKEN === 'your_api_token_here' || this.FALLBACK_MODE) {
         console.log('⚠️ Modo Fallback - Usando dados simulados avançados');
         return this.generateAdvancedFallbackTrends(config);
       }
@@ -185,7 +185,7 @@ class ApifyService {
       
       try {
         const response = await axios.get(searchUrl, {
-          headers: { 'User-Agent': 'ApifyTrendsBot/2.0' },
+          headers: { 'User-Agent': 'ScrapingBot/2.0' },
           timeout: 8000
         });
         
@@ -719,4 +719,4 @@ Looking ahead, the trajectory of ${keyword} appears to be influenced by several 
   }
 }
 
-export const apifyService = new ApifyService();
+export const apifyService = new ScrapingService();

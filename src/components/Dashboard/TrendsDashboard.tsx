@@ -60,7 +60,7 @@ export const TrendsDashboard: React.FC = () => {
     setIsLoading(true);
     setSearchError(null);
     try {
-      console.log('🚀 Carregando trends iniciais com Apify...');
+      console.log('🚀 Carregando trends iniciais...');
       
       // Usar palavras-chave baseadas na categoria
       const keywords = getKeywordsByCategory(selectedCategory);
@@ -209,7 +209,7 @@ export const TrendsDashboard: React.FC = () => {
               Analytics & Trends Dashboard
             </h1>
             <p className="text-gray-400 font-inter">
-              Análise profissional de tendências com scraping inteligente via Apify
+              Análise profissional de tendências com scraping inteligente
             </p>
           </div>
 
@@ -394,7 +394,7 @@ export const TrendsDashboard: React.FC = () => {
               <div className="text-center">
                 <div className="animate-spin w-12 h-12 border-4 border-[#1500FF] border-t-transparent rounded-full mx-auto mb-4" />
                 <h3 className="text-white font-inter font-semibold text-lg mb-2">
-                  {isSearching ? 'Analisando Palavra-chave' : 'Processando com Apify'}
+                  {isSearching ? 'Analisando Palavra-chave' : 'Processando Dados'}
                 </h3>
                 <p className="text-gray-400 font-inter text-sm">
                   {isSearching 

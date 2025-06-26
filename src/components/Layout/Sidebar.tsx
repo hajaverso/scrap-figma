@@ -38,7 +38,7 @@ export const Sidebar: React.FC = () => {
             </div>
             <div>
               <h1 className="text-white font-inter font-semibold text-lg">Scrap Pro</h1>
-              <p className="text-gray-400 font-inter text-xs">Powered by Apify</p>
+              <p className="text-gray-400 font-inter text-xs">Sistema Inteligente</p>
             </div>
           </div>
 
@@ -88,7 +88,7 @@ export const Sidebar: React.FC = () => {
             <div className="bg-gray-800 rounded-lg p-3">
               <div className="flex items-center gap-2 mb-1">
                 <div className="w-2 h-2 bg-green-500 rounded-full" />
-                <span className="text-white font-inter text-sm font-medium">Apify Status</span>
+                <span className="text-white font-inter text-sm font-medium">Sistema Status</span>
               </div>
               <p className="text-gray-400 font-inter text-xs">Conectado e operacional</p>
             </div>
