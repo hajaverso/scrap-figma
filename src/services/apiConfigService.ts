@@ -3,6 +3,8 @@ interface APIConfig {
   serpApiKey?: string;
   openaiKey?: string;
   simpleScraperKey?: string;
+  geminiKey?: string;
+  openRouterKey?: string;
 }
 
 interface APITestResult {
@@ -189,6 +191,94 @@ class APIConfigService {
     }
   }
 
+  // Testar Gemini API (Google)
+  async testGeminiAPI(apiKey: string): Promise<APITestResult> {
+    try {
+      // Usar endpoint de modelos do Gemini para validar a chave
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1/models?key=${apiKey}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        const modelCount = data.models?.length || 0;
+        return {
+          isValid: true,
+          message: `Conectado - ${modelCount} modelos Gemini disponíveis`,
+          status: 'success'
+        };
+      } else if (response.status === 400) {
+        return {
+          isValid: false,
+          message: 'API Key inválida ou malformada',
+          status: 'error'
+        };
+      } else if (response.status === 403) {
+        return {
+          isValid: false,
+          message: 'API Key sem permissões ou quota excedida',
+          status: 'error'
+        };
+      } else {
+        return {
+          isValid: false,
+          message: `Erro HTTP: ${response.status}`,
+          status: 'error'
+        };
+      }
+    } catch (error) {
+      return {
+        isValid: false,
+        message: 'Erro de conexão com Google Gemini',
+        status: 'error'
+      };
+    }
+  }
+
+  // Testar OpenRouter API
+  async testOpenRouterAPI(apiKey: string): Promise<APITestResult> {
+    try {
+      const response = await fetch('https://openrouter.ai/api/v1/models', {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const modelCount = data.data?.length || 0;
+        return {
+          isValid: true,
+          message: `Conectado - ${modelCount} modelos disponíveis`,
+          status: 'success'
+        };
+      } else if (response.status === 401) {
+        return {
+          isValid: false,
+          message: 'API Key inválida ou expirada',
+          status: 'error'
+        };
+      } else if (response.status === 429) {
+        return {
+          isValid: false,
+          message: 'Limite de rate excedido',
+          status: 'warning'
+        };
+      } else {
+        return {
+          isValid: false,
+          message: `Erro HTTP: ${response.status}`,
+          status: 'error'
+        };
+      }
+    } catch (error) {
+      return {
+        isValid: false,
+        message: 'Erro de conexão com OpenRouter',
+        status: 'error'
+      };
+    }
+  }
+
   // Testar SimpleScraper API
   async testSimpleScraperAPI(apiKey: string): Promise<APITestResult> {
     try {
@@ -239,6 +329,10 @@ class APIConfigService {
         return this.testSerpAPI(apiKey);
       case 'openaiKey':
         return this.testOpenAIAPI(apiKey);
+      case 'geminiKey':
+        return this.testGeminiAPI(apiKey);
+      case 'openRouterKey':
+        return this.testOpenRouterAPI(apiKey);
       case 'simpleScraperKey':
         return this.testSimpleScraperAPI(apiKey);
       default:
@@ -256,6 +350,8 @@ class APIConfigService {
       apify: this.isConfigured('apifyKey'),
       serpApi: this.isConfigured('serpApiKey'),
       openai: this.isConfigured('openaiKey'),
+      gemini: this.isConfigured('geminiKey'),
+      openRouter: this.isConfigured('openRouterKey'),
       simpleScraper: this.isConfigured('simpleScraperKey')
     };
   }
@@ -270,6 +366,8 @@ class APIConfigService {
       apifyKey: 'Apify',
       serpApiKey: 'SerpAPI',
       openaiKey: 'OpenAI',
+      geminiKey: 'Google Gemini',
+      openRouterKey: 'OpenRouter',
       simpleScraperKey: 'SimpleScraper'
     };
     

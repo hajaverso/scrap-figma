@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Settings, Eye, EyeOff, Check, AlertCircle, Loader, Key, Shield, ExternalLink, Info } from 'lucide-react';
+import { X, Settings, Eye, EyeOff, Check, AlertCircle, Loader, Key, Shield, ExternalLink, Info, Brain, Zap } from 'lucide-react';
 import { apiConfigService } from '../../services/apiConfigService';
 
 interface APISettingsModalProps {
@@ -9,13 +9,14 @@ interface APISettingsModalProps {
 }
 
 interface APIField {
-  key: 'apifyKey' | 'serpApiKey' | 'openaiKey' | 'simpleScraperKey';
+  key: 'apifyKey' | 'serpApiKey' | 'openaiKey' | 'geminiKey' | 'openRouterKey' | 'simpleScraperKey';
   label: string;
   description: string;
   placeholder: string;
   required: boolean;
   helpUrl: string;
   icon: React.ReactNode;
+  category: 'scraping' | 'ai' | 'optional';
 }
 
 interface TestResult {
@@ -29,6 +30,8 @@ export const APISettingsModal: React.FC<APISettingsModalProps> = ({ isOpen, onCl
     apifyKey: '',
     serpApiKey: '',
     openaiKey: '',
+    geminiKey: '',
+    openRouterKey: '',
     simpleScraperKey: ''
   });
 
@@ -36,6 +39,8 @@ export const APISettingsModal: React.FC<APISettingsModalProps> = ({ isOpen, onCl
     apifyKey: false,
     serpApiKey: false,
     openaiKey: false,
+    geminiKey: false,
+    openRouterKey: false,
     simpleScraperKey: false
   });
 
@@ -45,6 +50,7 @@ export const APISettingsModal: React.FC<APISettingsModalProps> = ({ isOpen, onCl
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   const apiFields: APIField[] = [
+    // Scraping APIs
     {
       key: 'apifyKey',
       label: 'Apify API Key',
@@ -52,7 +58,8 @@ export const APISettingsModal: React.FC<APISettingsModalProps> = ({ isOpen, onCl
       placeholder: 'apify_api_...',
       required: true,
       helpUrl: 'https://docs.apify.com/api/v2#/introduction/authentication',
-      icon: <Key size={16} className="text-blue-400" />
+      icon: <Key size={16} className="text-blue-400" />,
+      category: 'scraping'
     },
     {
       key: 'serpApiKey',
@@ -61,17 +68,43 @@ export const APISettingsModal: React.FC<APISettingsModalProps> = ({ isOpen, onCl
       placeholder: 'serpapi_key_...',
       required: true,
       helpUrl: 'https://serpapi.com/manage-api-key',
-      icon: <Key size={16} className="text-green-400" />
+      icon: <Key size={16} className="text-green-400" />,
+      category: 'scraping'
     },
+    
+    // AI APIs
     {
       key: 'openaiKey',
       label: 'OpenAI API Key',
-      description: 'Para geração inteligente de carrosséis',
+      description: 'Para geração inteligente com GPT-4, GPT-3.5',
       placeholder: 'sk-...',
       required: true,
       helpUrl: 'https://platform.openai.com/api-keys',
-      icon: <Key size={16} className="text-purple-400" />
+      icon: <Brain size={16} className="text-purple-400" />,
+      category: 'ai'
     },
+    {
+      key: 'geminiKey',
+      label: 'Gemini API Key (Google)',
+      description: 'Para geração com modelos Gemini Pro e Ultra',
+      placeholder: 'AIza...',
+      required: false,
+      helpUrl: 'https://makersuite.google.com/app/apikey',
+      icon: <Brain size={16} className="text-orange-400" />,
+      category: 'ai'
+    },
+    {
+      key: 'openRouterKey',
+      label: 'OpenRouter API Key',
+      description: 'Acesso a múltiplos modelos de IA (Claude, Llama, etc)',
+      placeholder: 'sk-or-...',
+      required: false,
+      helpUrl: 'https://openrouter.ai/keys',
+      icon: <Zap size={16} className="text-cyan-400" />,
+      category: 'ai'
+    },
+    
+    // Optional APIs
     {
       key: 'simpleScraperKey',
       label: 'SimpleScraper Key',
@@ -79,7 +112,32 @@ export const APISettingsModal: React.FC<APISettingsModalProps> = ({ isOpen, onCl
       placeholder: 'ss_key_...',
       required: false,
       helpUrl: 'https://simplescraper.io/api',
-      icon: <Key size={16} className="text-yellow-400" />
+      icon: <Key size={16} className="text-yellow-400" />,
+      category: 'optional'
+    }
+  ];
+
+  const categories = [
+    {
+      id: 'scraping',
+      title: 'APIs de Scraping',
+      description: 'Para coleta e análise de dados web',
+      icon: <Key size={20} className="text-blue-400" />,
+      color: 'border-blue-800 bg-blue-900/20'
+    },
+    {
+      id: 'ai',
+      title: 'APIs de Inteligência Artificial',
+      description: 'Para geração inteligente de conteúdo',
+      icon: <Brain size={20} className="text-purple-400" />,
+      color: 'border-purple-800 bg-purple-900/20'
+    },
+    {
+      id: 'optional',
+      title: 'APIs Opcionais',
+      description: 'Funcionalidades extras e experimentais',
+      icon: <Zap size={20} className="text-yellow-400" />,
+      color: 'border-yellow-800 bg-yellow-900/20'
     }
   ];
 
@@ -91,6 +149,8 @@ export const APISettingsModal: React.FC<APISettingsModalProps> = ({ isOpen, onCl
         apifyKey: config.apifyKey || '',
         serpApiKey: config.serpApiKey || '',
         openaiKey: config.openaiKey || '',
+        geminiKey: config.geminiKey || '',
+        openRouterKey: config.openRouterKey || '',
         simpleScraperKey: config.simpleScraperKey || ''
       });
       
@@ -204,6 +264,15 @@ export const APISettingsModal: React.FC<APISettingsModalProps> = ({ isOpen, onCl
     }
   };
 
+  const getFieldsByCategory = (categoryId: string) => {
+    return apiFields.filter(field => field.category === categoryId);
+  };
+
+  const getConfiguredCount = (categoryId: string) => {
+    const fields = getFieldsByCategory(categoryId);
+    return fields.filter(field => formData[field.key].trim().length > 0).length;
+  };
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -218,7 +287,7 @@ export const APISettingsModal: React.FC<APISettingsModalProps> = ({ isOpen, onCl
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
-            className="bg-[#111111] rounded-xl border border-gray-800 w-full max-w-4xl max-h-[90vh] overflow-y-auto"
+            className="bg-[#111111] rounded-xl border border-gray-800 w-full max-w-6xl max-h-[90vh] overflow-y-auto"
           >
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-800">
@@ -231,7 +300,7 @@ export const APISettingsModal: React.FC<APISettingsModalProps> = ({ isOpen, onCl
                     Configurações de API
                   </h3>
                   <p className="text-gray-400 font-inter text-sm">
-                    Configure suas chaves de API para ativar todas as funcionalidades
+                    Configure suas chaves de API para ativar todas as funcionalidades do Haja®Yodea
                   </p>
                 </div>
               </div>
@@ -262,85 +331,145 @@ export const APISettingsModal: React.FC<APISettingsModalProps> = ({ isOpen, onCl
                 </div>
               </div>
 
-              {/* API Fields */}
-              <div className="space-y-6">
-                {apiFields.map((field) => {
-                  const isLoading = testingStates[field.key];
-                  const result = testResults[field.key];
-                  const hasValue = formData[field.key].trim().length > 0;
+              {/* API Categories */}
+              <div className="space-y-8">
+                {categories.map((category) => {
+                  const fields = getFieldsByCategory(category.id);
+                  const configuredCount = getConfiguredCount(category.id);
                   
                   return (
-                    <div key={field.key} className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          {field.icon}
-                          <label className="text-gray-300 font-inter font-medium text-sm">
-                            {field.label}
-                            {field.required && <span className="text-red-400 ml-1">*</span>}
-                          </label>
+                    <div key={category.id} className={`border rounded-xl p-6 ${category.color}`}>
+                      {/* Category Header */}
+                      <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center gap-3">
+                          {category.icon}
+                          <div>
+                            <h4 className="text-white font-inter font-semibold text-lg">
+                              {category.title}
+                            </h4>
+                            <p className="text-gray-400 font-inter text-sm">
+                              {category.description}
+                            </p>
+                          </div>
                         </div>
                         
-                        <a
-                          href={field.helpUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1 text-[#1500FF] hover:text-blue-400 font-inter text-xs transition-colors"
-                        >
-                          <Info size={12} />
-                          Como obter
-                          <ExternalLink size={10} />
-                        </a>
+                        <div className="text-right">
+                          <div className="text-white font-inter font-bold text-lg">
+                            {configuredCount}/{fields.length}
+                          </div>
+                          <div className="text-gray-400 font-inter text-xs">
+                            Configuradas
+                          </div>
+                        </div>
                       </div>
 
-                      <p className="text-gray-400 font-inter text-xs">
-                        {field.description}
-                      </p>
-
-                      <div className="flex gap-3">
-                        <div className="flex-1 relative">
-                          <input
-                            type={showPasswords[field.key] ? 'text' : 'password'}
-                            value={formData[field.key]}
-                            onChange={(e) => handleInputChange(field.key, e.target.value)}
-                            placeholder={field.placeholder}
-                            className="w-full bg-black border border-gray-700 rounded-lg px-4 py-3 pr-12 text-white font-inter placeholder-gray-500 focus:outline-none focus:border-[#1500FF] transition-colors"
-                          />
+                      {/* Category Fields */}
+                      <div className="space-y-6">
+                        {fields.map((field) => {
+                          const isLoading = testingStates[field.key];
+                          const result = testResults[field.key];
+                          const hasValue = formData[field.key].trim().length > 0;
                           
-                          <button
-                            type="button"
-                            onClick={() => togglePasswordVisibility(field.key)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
-                          >
-                            {showPasswords[field.key] ? <EyeOff size={18} /> : <Eye size={18} />}
-                          </button>
-                        </div>
-                        
-                        <motion.button
-                          type="button"
-                          onClick={() => testAPI(field)}
-                          disabled={!hasValue || isLoading}
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          className="bg-gray-800 hover:bg-gray-700 text-white px-4 py-3 rounded-lg font-inter font-medium text-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                        >
-                          {getStatusIcon(result, isLoading)}
-                          Testar
-                        </motion.button>
-                      </div>
+                          return (
+                            <div key={field.key} className="space-y-3">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  {field.icon}
+                                  <label className="text-gray-300 font-inter font-medium text-sm">
+                                    {field.label}
+                                    {field.required && <span className="text-red-400 ml-1">*</span>}
+                                  </label>
+                                </div>
+                                
+                                <a
+                                  href={field.helpUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-1 text-[#1500FF] hover:text-blue-400 font-inter text-xs transition-colors"
+                                >
+                                  <Info size={12} />
+                                  Como obter
+                                  <ExternalLink size={10} />
+                                </a>
+                              </div>
 
-                      {/* Test Result */}
-                      {(result || isLoading) && (
-                        <motion.div
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          className={`p-3 rounded-lg border text-sm font-inter ${getStatusColor(result)}`}
-                        >
-                          {getStatusText(result, isLoading)}
-                        </motion.div>
-                      )}
+                              <p className="text-gray-400 font-inter text-xs">
+                                {field.description}
+                              </p>
+
+                              <div className="flex gap-3">
+                                <div className="flex-1 relative">
+                                  <input
+                                    type={showPasswords[field.key] ? 'text' : 'password'}
+                                    value={formData[field.key]}
+                                    onChange={(e) => handleInputChange(field.key, e.target.value)}
+                                    placeholder={field.placeholder}
+                                    className="w-full bg-black border border-gray-700 rounded-lg px-4 py-3 pr-12 text-white font-inter placeholder-gray-500 focus:outline-none focus:border-[#1500FF] transition-colors"
+                                  />
+                                  
+                                  <button
+                                    type="button"
+                                    onClick={() => togglePasswordVisibility(field.key)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                                  >
+                                    {showPasswords[field.key] ? <EyeOff size={18} /> : <Eye size={18} />}
+                                  </button>
+                                </div>
+                                
+                                <motion.button
+                                  type="button"
+                                  onClick={() => testAPI(field)}
+                                  disabled={!hasValue || isLoading}
+                                  whileHover={{ scale: 1.05 }}
+                                  whileTap={{ scale: 0.95 }}
+                                  className="bg-gray-800 hover:bg-gray-700 text-white px-4 py-3 rounded-lg font-inter font-medium text-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                >
+                                  {getStatusIcon(result, isLoading)}
+                                  Testar
+                                </motion.button>
+                              </div>
+
+                              {/* Test Result */}
+                              {(result || isLoading) && (
+                                <motion.div
+                                  initial={{ opacity: 0, y: 10 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  className={`p-3 rounded-lg border text-sm font-inter ${getStatusColor(result)}`}
+                                >
+                                  {getStatusText(result, isLoading)}
+                                </motion.div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   );
                 })}
+              </div>
+
+              {/* Quick Setup Guide */}
+              <div className="mt-8 bg-gray-900/50 rounded-lg p-6 border border-gray-700">
+                <h4 className="text-white font-inter font-semibold text-lg mb-4">
+                  🚀 Guia de Configuração Rápida
+                </h4>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm font-inter">
+                  <div className="space-y-2">
+                    <h5 className="text-blue-400 font-medium">1. Scraping Básico</h5>
+                    <p className="text-gray-400">Configure Apify + SerpAPI para análise completa de tendências</p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <h5 className="text-purple-400 font-medium">2. IA Inteligente</h5>
+                    <p className="text-gray-400">Adicione OpenAI, Gemini ou OpenRouter para geração avançada</p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <h5 className="text-yellow-400 font-medium">3. Extras</h5>
+                    <p className="text-gray-400">SimpleScraper para funcionalidades experimentais</p>
+                  </div>
+                </div>
               </div>
 
               {/* Actions */}
