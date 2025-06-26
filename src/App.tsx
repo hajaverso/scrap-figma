@@ -4,6 +4,7 @@ import { Sidebar } from './components/Layout/Sidebar';
 import { Header } from './components/Layout/Header';
 import { ScrapingPanel } from './components/Scraping/ScrapingPanel';
 import { CarouselGenerator } from './components/Carousel/CarouselGenerator';
+import { CarouselEditor } from './components/Editor/CarouselEditor';
 import { CarouselPreview } from './components/Preview/CarouselPreview';
 import { TrendsDashboard } from './components/Dashboard/TrendsDashboard';
 import { useAppStore } from './store/useAppStore';
@@ -19,6 +20,8 @@ function App() {
         return <ScrapingPanel />;
       case 'carousel':
         return <CarouselGenerator />;
+      case 'editor':
+        return <CarouselEditor />;
       case 'preview':
         return <CarouselPreview />;
       default:

@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Search, Layers, Eye, Menu, X, BarChart3 } from 'lucide-react';
+import { Search, Layers, Eye, Menu, X, BarChart3, Edit3 } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 
 export const Sidebar: React.FC = () => {
@@ -10,6 +10,7 @@ export const Sidebar: React.FC = () => {
     { id: 'dashboard', label: 'Analytics', icon: BarChart3 },
     { id: 'scraping', label: 'Scraping Pro', icon: Search },
     { id: 'carousel', label: 'Gerador IA', icon: Layers },
+    { id: 'editor', label: 'Editor Canvas', icon: Edit3 },
     { id: 'preview', label: 'Preview & Export', icon: Eye }
   ];
 
@@ -66,6 +67,12 @@ export const Sidebar: React.FC = () => {
                     <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
                   )}
                   
+                  {item.id === 'editor' && generatedCarousels.length > 0 && (
+                    <div className="bg-blue-500 text-white px-2 py-1 rounded-full text-xs font-bold">
+                      {generatedCarousels.length}
+                    </div>
+                  )}
+                  
                   {item.id === 'preview' && generatedCarousels.length > 0 && (
                     <div className="bg-green-500 text-black px-2 py-1 rounded-full text-xs font-bold">
                       {generatedCarousels.length}
@@ -89,11 +96,11 @@ export const Sidebar: React.FC = () => {
             {generatedCarousels.length > 0 && (
               <div className="bg-[#1500FF]/20 border border-[#1500FF]/30 rounded-lg p-3">
                 <div className="flex items-center gap-2 mb-1">
-                  <Layers size={14} className="text-[#1500FF]" />
+                  <Edit3 size={14} className="text-[#1500FF]" />
                   <span className="text-[#1500FF] font-inter text-sm font-medium">Carrosséis</span>
                 </div>
                 <p className="text-gray-300 font-inter text-xs">
-                  {generatedCarousels.length} prontos para export
+                  {generatedCarousels.length} prontos para edição
                 </p>
               </div>
             )}

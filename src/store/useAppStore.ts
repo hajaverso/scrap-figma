@@ -44,7 +44,7 @@ interface AppState {
   generationError: string | null;
   
   // UI State
-  activeTab: 'dashboard' | 'scraping' | 'carousel' | 'preview';
+  activeTab: 'dashboard' | 'scraping' | 'carousel' | 'editor' | 'preview';
   sidebarOpen: boolean;
   
   // Actions
@@ -61,7 +61,7 @@ interface AppState {
   setCurrentEditingCarousel: (carousel: CarouselCard[] | null) => void;
   updateCarouselCard: (index: number, updatedCard: CarouselCard) => void;
   
-  setActiveTab: (tab: 'dashboard' | 'scraping' | 'carousel' | 'preview') => void;
+  setActiveTab: (tab: 'dashboard' | 'scraping' | 'carousel' | 'editor' | 'preview') => void;
   toggleSidebar: () => void;
 }
 
@@ -169,31 +169,40 @@ export const useAppStore = create<AppState>((set, get) => ({
         console.log('⚡ Usando geração básica...');
         await new Promise(resolve => setTimeout(resolve, 2000));
         
-        const styleOptions = ['modern', 'minimal', 'bold', 'elegant'] as const;
         const colorPalettes = [
-          { primary: '#1500FF', secondary: '#111111', text: '#FFFFFF', background: '#000000' },
-          { primary: '#FF6B6B', secondary: '#4ECDC4', text: '#FFFFFF', background: '#1A1A1A' },
-          { primary: '#4ECDC4', secondary: '#45B7D1', text: '#FFFFFF', background: '#0F0F0F' },
-          { primary: '#96CEB4', secondary: '#FFEAA7', text: '#2D3436', background: '#FFFFFF' },
-          { primary: '#6C5CE7', secondary: '#A29BFE', text: '#FFFFFF', background: '#2D3436' }
+          { primary: '#1500FF', secondary: '#6366F1', text: '#FFFFFF', background: '#111111' },
+          { primary: '#EF4444', secondary: '#F97316', text: '#FFFFFF', background: '#1A1A1A' },
+          { primary: '#22C55E', secondary: '#10B981', text: '#FFFFFF', background: '#0F172A' },
+          { primary: '#8B5CF6', secondary: '#A855F7', text: '#FFFFFF', background: '#1F1B2E' },
+          { primary: '#F59E0B', secondary: '#D97706', text: '#1F2937', background: '#FEF3C7' },
+          { primary: '#06B6D4', secondary: '#0891B2', text: '#FFFFFF', background: '#0C4A6E' },
+          { primary: '#EC4899', secondary: '#DB2777', text: '#FFFFFF', background: '#831843' },
+          { primary: '#84CC16', secondary: '#65A30D', text: '#1F2937', background: '#F7FEE7' },
+          { primary: '#6366F1', secondary: '#4F46E5', text: '#FFFFFF', background: '#1E1B4B' },
+          { primary: '#DC2626', secondary: '#B91C1C', text: '#FFFFFF', background: '#450A0A' }
         ];
         
-        generatedCards = selectedArticles.slice(0, cardCount).map((article, index) => ({
-          id: `card-${Date.now()}-${index}`,
-          title: article.title,
-          subtitle: `${article.source} • ${new Date(article.publishDate).toLocaleDateString(language === 'pt' ? 'pt-BR' : language === 'en' ? 'en-US' : 'es-ES')}`,
-          description: article.description,
-          imageUrl: article.imageUrl,
-          style: style,
-          colors: colorPalettes[index % colorPalettes.length]
-        }));
+        generatedCards = selectedArticles.slice(0, cardCount).map((article, index) => {
+          const palette = colorPalettes[index % colorPalettes.length];
+          const cardId = `card-${Date.now()}-${index}`;
+          
+          return {
+            id: cardId,
+            title: article.title.length > 60 ? article.title.substring(0, 57) + '...' : article.title,
+            subtitle: `${article.source} • ${new Date(article.publishDate).toLocaleDateString(language === 'pt' ? 'pt-BR' : language === 'en' ? 'en-US' : 'es-ES')}`,
+            description: article.description.length > 150 ? article.description.substring(0, 147) + '...' : article.description,
+            imageUrl: article.imageUrl,
+            style: style,
+            colors: palette
+          };
+        });
       }
       
       get().addGeneratedCarousel(generatedCards);
       set({ 
         isGeneratingCarousel: false,
         currentEditingCarousel: generatedCards,
-        activeTab: 'preview' // Ir direto para preview
+        activeTab: 'editor' // Ir direto para o editor
       });
       
       console.log(`✅ Carrossel gerado com sucesso! (${useAI ? 'com IA' : 'básico'})`);
