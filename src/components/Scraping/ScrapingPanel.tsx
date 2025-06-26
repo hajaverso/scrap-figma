@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Loader, AlertCircle, TrendingUp, Globe, Zap, Brain, BarChart3, Target } from 'lucide-react';
+import { Search, Loader, AlertCircle, TrendingUp, Globe, Zap, Brain, BarChart3, Target, Calendar, Clock, Filter, FileText, Eye, Download } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { ArticleTable } from './ArticleTable';
 import { apifyService } from '../../services/apifyService';
@@ -20,6 +20,11 @@ export const ScrapingPanel: React.FC = () => {
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
   const [trendData, setTrendData] = useState<any[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [timeRange, setTimeRange] = useState<'1d' | '3d' | '7d' | '14d' | '30d'>('7d');
+  const [analysisDepth, setAnalysisDepth] = useState<'basic' | 'detailed' | 'comprehensive'>('detailed');
+  const [includeFullContent, setIncludeFullContent] = useState(true);
+  const [sourcePriority, setSourcePriority] = useState<'all' | 'news' | 'social' | 'tech'>('all');
+  const [minEngagement, setMinEngagement] = useState(10);
 
   const trendingCategories = [
     {
@@ -48,13 +53,46 @@ export const ScrapingPanel: React.FC = () => {
     }
   ];
 
-  const popularKeywords = [
-    'AI', 'Machine Learning', 'Blockchain', 'Web3', 'React', 'TypeScript',
-    'Design System', 'UX/UI', 'Figma', 'No-code', 'SaaS', 'Startup',
-    'ChatGPT', 'OpenAI', 'Automation', 'Cloud Computing'
+  const timeRangeOptions = [
+    { value: '1d', label: '24 horas', description: 'Tendências do último dia' },
+    { value: '3d', label: '3 dias', description: 'Tendências dos últimos 3 dias' },
+    { value: '7d', label: '7 dias', description: 'Tendências da última semana' },
+    { value: '14d', label: '14 dias', description: 'Tendências das últimas 2 semanas' },
+    { value: '30d', label: '30 dias', description: 'Tendências do último mês' }
   ];
 
-  const handleSearch = async (e: React.FormEvent) => {
+  const analysisDepthOptions = [
+    { 
+      value: 'basic', 
+      label: 'Básica', 
+      description: 'Títulos e resumos',
+      icon: Eye,
+      articles: '5-10 por fonte'
+    },
+    { 
+      value: 'detailed', 
+      label: 'Detalhada', 
+      description: 'Conteúdo completo + análise',
+      icon: FileText,
+      articles: '10-20 por fonte'
+    },
+    { 
+      value: 'comprehensive', 
+      label: 'Abrangente', 
+      description: 'Análise profunda + sentimentos',
+      icon: Brain,
+      articles: '20-50 por fonte'
+    }
+  ];
+
+  const sourcePriorityOptions = [
+    { value: 'all', label: 'Todas as Fontes', sources: ['Google', 'Reddit', 'Twitter', 'News', 'HN', 'Dev.to'] },
+    { value: 'news', label: 'Notícias', sources: ['BBC', 'TechCrunch', 'Wired', 'Reuters'] },
+    { value: 'social', label: 'Redes Sociais', sources: ['Twitter', 'Reddit', 'LinkedIn'] },
+    { value: 'tech', label: 'Tech Communities', sources: ['Hacker News', 'Dev.to', 'GitHub'] }
+  ];
+
+  const handleAdvancedSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchKeyword.trim()) return;
 
@@ -62,23 +100,41 @@ export const ScrapingPanel: React.FC = () => {
     setScrapingError(null);
 
     try {
-      console.log('🚀 Iniciando scraping profissional com Apify...');
+      console.log('🚀 Iniciando análise avançada com Apify...');
+      console.log(`📊 Configurações:`, {
+        keyword: searchKeyword,
+        additionalKeywords: selectedKeywords,
+        timeRange,
+        analysisDepth,
+        includeFullContent,
+        sourcePriority,
+        minEngagement
+      });
       
-      // Usar Apify para scraping profissional
-      const keywords = [searchKeyword, ...selectedKeywords].slice(0, 5);
-      const trends = await apifyService.scrapeTrends(keywords);
+      // Configurar parâmetros avançados para o Apify
+      const searchConfig = {
+        keywords: [searchKeyword, ...selectedKeywords].slice(0, 8),
+        timeRange,
+        analysisDepth,
+        includeFullContent,
+        sourcePriority,
+        minEngagement,
+        maxArticlesPerSource: analysisDepth === 'basic' ? 10 : analysisDepth === 'detailed' ? 20 : 50
+      };
+
+      const trends = await apifyService.scrapeAdvancedTrends(searchConfig);
       
       setTrendData(trends);
       
-      // Converter trends para articles
+      // Converter trends para articles com conteúdo completo
       const allArticles = trends.flatMap(trend => trend.articles);
       setArticles(allArticles);
       
-      console.log(`✅ Encontrados ${allArticles.length} artigos de ${trends.length} tendências`);
+      console.log(`✅ Análise concluída: ${allArticles.length} artigos de ${trends.length} tendências`);
       
     } catch (error) {
-      console.error('❌ Erro no scraping:', error);
-      setScrapingError('Erro no scraping profissional. Tente novamente.');
+      console.error('❌ Erro na análise avançada:', error);
+      setScrapingError('Erro na análise avançada. Tente novamente com configurações diferentes.');
     } finally {
       setIsAnalyzing(false);
     }
@@ -88,23 +144,64 @@ export const ScrapingPanel: React.FC = () => {
     setSelectedKeywords(prev => 
       prev.includes(keyword) 
         ? prev.filter(k => k !== keyword)
-        : [...prev, keyword].slice(0, 4) // Máximo 4 keywords adicionais
+        : [...prev, keyword].slice(0, 6) // Máximo 6 keywords adicionais
     );
   };
 
   const handleCategorySelect = (keywords: string[]) => {
-    setSelectedKeywords(keywords.slice(0, 4));
+    setSelectedKeywords(keywords.slice(0, 6));
   };
 
   const isKeywordSelected = (keyword: string) => selectedKeywords.includes(keyword);
 
+  const getTimeRangeDescription = () => {
+    const option = timeRangeOptions.find(opt => opt.value === timeRange);
+    return option?.description || '';
+  };
+
+  const getAnalysisDescription = () => {
+    const option = analysisDepthOptions.find(opt => opt.value === analysisDepth);
+    return option?.description || '';
+  };
+
+  const exportAnalysis = () => {
+    const analysisData = {
+      timestamp: new Date().toISOString(),
+      searchConfig: {
+        keyword: searchKeyword,
+        additionalKeywords: selectedKeywords,
+        timeRange,
+        analysisDepth,
+        includeFullContent,
+        sourcePriority,
+        minEngagement
+      },
+      trends: trendData,
+      articles: articles,
+      summary: {
+        totalArticles: articles.length,
+        totalTrends: trendData.length,
+        avgScore: trendData.length > 0 ? (trendData.reduce((sum, t) => sum + t.score, 0) / trendData.length).toFixed(2) : 0,
+        timeRangeAnalyzed: getTimeRangeDescription()
+      }
+    };
+
+    const blob = new Blob([JSON.stringify(analysisData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `analysis-${searchKeyword}-${timeRange}-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-6">
-      {/* Search Form com Apify */}
+      {/* Advanced Search Form */}
       <motion.form
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        onSubmit={handleSearch}
+        onSubmit={handleAdvancedSearch}
         className="bg-[#111111] rounded-xl p-6 border border-gray-800"
       >
         <div className="flex items-center gap-3 mb-6">
@@ -113,18 +210,21 @@ export const ScrapingPanel: React.FC = () => {
           </div>
           <div>
             <h3 className="text-white font-inter font-semibold text-xl">
-              Scraping Profissional com Apify
+              Scraping Pro Avançado com Apify
             </h3>
             <p className="text-gray-400 font-inter text-sm">
-              Análise avançada de tendências de múltiplas fontes em tempo real
+              Análise temporal profunda com conteúdo completo dos artigos
             </p>
           </div>
         </div>
         
-        <div className="space-y-4">
+        <div className="space-y-6">
           {/* Main Search Input */}
           <div className="flex gap-4">
             <div className="flex-1">
+              <label className="block text-gray-300 font-inter font-medium text-sm mb-2">
+                Palavra-chave Principal
+              </label>
               <input
                 type="text"
                 value={searchKeyword}
@@ -135,32 +235,199 @@ export const ScrapingPanel: React.FC = () => {
               />
             </div>
             
-            <motion.button
-              type="submit"
-              disabled={isAnalyzing || !searchKeyword.trim()}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="bg-[#1500FF] text-white px-8 py-3 rounded-lg font-inter font-semibold flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:bg-blue-600"
-            >
-              {isAnalyzing ? (
-                <>
-                  <Loader size={20} className="animate-spin" />
-                  Analisando...
-                </>
-              ) : (
-                <>
-                  <Search size={20} />
-                  Buscar com IA
-                </>
-              )}
-            </motion.button>
+            <div className="flex items-end">
+              <motion.button
+                type="submit"
+                disabled={isAnalyzing || !searchKeyword.trim()}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="bg-[#1500FF] text-white px-8 py-3 rounded-lg font-inter font-semibold flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:bg-blue-600"
+              >
+                {isAnalyzing ? (
+                  <>
+                    <Loader size={20} className="animate-spin" />
+                    Analisando...
+                  </>
+                ) : (
+                  <>
+                    <Search size={20} />
+                    Análise Avançada
+                  </>
+                )}
+              </motion.button>
+            </div>
+          </div>
+
+          {/* Advanced Configuration */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Time Range Selection */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Calendar size={16} className="text-[#1500FF]" />
+                <label className="text-gray-300 font-inter font-medium text-sm">
+                  Período de Análise
+                </label>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-2">
+                {timeRangeOptions.map((option) => (
+                  <motion.button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setTimeRange(option.value as any)}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    disabled={isAnalyzing}
+                    className={`p-3 rounded-lg border text-left transition-all duration-200 ${
+                      timeRange === option.value
+                        ? 'border-[#1500FF] bg-[#1500FF]/10'
+                        : 'border-gray-700 hover:border-gray-600'
+                    }`}
+                  >
+                    <div className={`font-inter font-medium text-sm ${
+                      timeRange === option.value ? 'text-[#1500FF]' : 'text-white'
+                    }`}>
+                      {option.label}
+                    </div>
+                    <div className="text-gray-400 font-inter text-xs">
+                      {option.description}
+                    </div>
+                  </motion.button>
+                ))}
+              </div>
+              
+              <div className="text-xs text-gray-500 font-inter">
+                📅 Analisando: {getTimeRangeDescription()}
+              </div>
+            </div>
+
+            {/* Analysis Depth */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Brain size={16} className="text-[#1500FF]" />
+                <label className="text-gray-300 font-inter font-medium text-sm">
+                  Profundidade da Análise
+                </label>
+              </div>
+              
+              <div className="space-y-2">
+                {analysisDepthOptions.map((option) => {
+                  const Icon = option.icon;
+                  return (
+                    <motion.button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setAnalysisDepth(option.value as any)}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      disabled={isAnalyzing}
+                      className={`w-full p-3 rounded-lg border text-left transition-all duration-200 ${
+                        analysisDepth === option.value
+                          ? 'border-[#1500FF] bg-[#1500FF]/10'
+                          : 'border-gray-700 hover:border-gray-600'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Icon size={16} className={analysisDepth === option.value ? 'text-[#1500FF]' : 'text-gray-400'} />
+                        <div className="flex-1">
+                          <div className={`font-inter font-medium text-sm ${
+                            analysisDepth === option.value ? 'text-[#1500FF]' : 'text-white'
+                          }`}>
+                            {option.label}
+                          </div>
+                          <div className="text-gray-400 font-inter text-xs">
+                            {option.description} • {option.articles}
+                          </div>
+                        </div>
+                      </div>
+                    </motion.button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Additional Options */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Full Content Toggle */}
+            <div className="bg-gray-900/50 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <FileText size={16} className="text-green-400" />
+                  <span className="text-white font-inter font-medium text-sm">
+                    Conteúdo Completo
+                  </span>
+                </div>
+                <motion.button
+                  type="button"
+                  onClick={() => setIncludeFullContent(!includeFullContent)}
+                  whileTap={{ scale: 0.95 }}
+                  className={`w-12 h-6 rounded-full transition-all duration-200 ${
+                    includeFullContent ? 'bg-[#1500FF]' : 'bg-gray-600'
+                  }`}
+                >
+                  <div className={`w-5 h-5 bg-white rounded-full transition-all duration-200 ${
+                    includeFullContent ? 'translate-x-6' : 'translate-x-0.5'
+                  }`} />
+                </motion.button>
+              </div>
+              <p className="text-gray-400 font-inter text-xs">
+                Extrair texto completo dos artigos
+              </p>
+            </div>
+
+            {/* Source Priority */}
+            <div className="bg-gray-900/50 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Globe size={16} className="text-blue-400" />
+                <span className="text-white font-inter font-medium text-sm">
+                  Prioridade de Fontes
+                </span>
+              </div>
+              <select
+                value={sourcePriority}
+                onChange={(e) => setSourcePriority(e.target.value as any)}
+                disabled={isAnalyzing}
+                className="w-full bg-black border border-gray-700 rounded-lg px-3 py-2 text-white font-inter text-sm focus:outline-none focus:border-[#1500FF]"
+              >
+                {sourcePriorityOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Min Engagement */}
+            <div className="bg-gray-900/50 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <TrendingUp size={16} className="text-yellow-400" />
+                <span className="text-white font-inter font-medium text-sm">
+                  Engajamento Mínimo
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="range"
+                  min="1"
+                  max="100"
+                  value={minEngagement}
+                  onChange={(e) => setMinEngagement(parseInt(e.target.value))}
+                  disabled={isAnalyzing}
+                  className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider"
+                />
+                <span className="text-white font-inter text-sm min-w-[3rem]">
+                  {minEngagement}
+                </span>
+              </div>
+            </div>
           </div>
 
           {/* Selected Keywords Display */}
           {selectedKeywords.length > 0 && (
             <div className="bg-gray-900/50 rounded-lg p-4">
               <h4 className="text-gray-300 font-inter font-medium text-sm mb-3">
-                Palavras-chave selecionadas ({selectedKeywords.length}/4):
+                Palavras-chave adicionais ({selectedKeywords.length}/6):
               </h4>
               <div className="flex flex-wrap gap-2">
                 {selectedKeywords.map((keyword) => (
@@ -206,64 +473,35 @@ export const ScrapingPanel: React.FC = () => {
                     <p className="text-gray-400 font-inter text-xs">
                       {category.keywords.length} palavras-chave
                     </p>
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {category.keywords.slice(0, 3).map((keyword) => (
-                        <span
-                          key={keyword}
-                          className="bg-gray-700 text-gray-300 px-2 py-1 rounded text-xs font-inter"
-                        >
-                          {keyword}
-                        </span>
-                      ))}
-                      {category.keywords.length > 3 && (
-                        <span className="text-gray-500 font-inter text-xs">
-                          +{category.keywords.length - 3}
-                        </span>
-                      )}
-                    </div>
                   </motion.button>
                 );
               })}
             </div>
           </div>
 
-          {/* Popular Keywords */}
-          <div className="space-y-3">
-            <h4 className="text-gray-300 font-inter font-medium text-sm">
-              Palavras-chave populares:
-            </h4>
-            <div className="flex flex-wrap gap-2">
-              {popularKeywords.map((keyword) => (
-                <motion.button
-                  key={keyword}
-                  type="button"
-                  onClick={() => handleKeywordToggle(keyword)}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  disabled={isAnalyzing}
-                  className={`px-3 py-2 rounded-lg font-inter text-sm transition-all duration-200 disabled:opacity-50 ${
-                    isKeywordSelected(keyword)
-                      ? 'bg-[#1500FF] text-white'
-                      : 'bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white'
-                  }`}
-                >
-                  {keyword}
-                  {isKeywordSelected(keyword) && (
-                    <span className="ml-2">✓</span>
-                  )}
-                </motion.button>
-              ))}
-            </div>
-          </div>
-
           {/* Data Sources Info */}
           <div className="bg-green-900/20 border border-green-800 rounded-lg p-4">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-              <span className="text-green-400 font-inter font-medium text-sm">
-                Apify Conectado - Fontes Ativas
-              </span>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                <span className="text-green-400 font-inter font-medium text-sm">
+                  Apify Pro - Fontes Ativas
+                </span>
+              </div>
+              
+              {trendData.length > 0 && (
+                <motion.button
+                  onClick={exportAnalysis}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-lg font-inter text-xs transition-all duration-200"
+                >
+                  <Download size={12} />
+                  Exportar Análise
+                </motion.button>
+              )}
             </div>
+            
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-gray-300 font-inter text-xs">
               <div className="flex items-center gap-1">
                 <Globe size={12} />
@@ -294,8 +532,8 @@ export const ScrapingPanel: React.FC = () => {
                 <span>Sentiment</span>
               </div>
               <div className="flex items-center gap-1">
-                <TrendingUp size={12} />
-                <span>Predictions</span>
+                <Clock size={12} />
+                <span>Temporal Analysis</span>
               </div>
             </div>
           </div>
@@ -320,30 +558,35 @@ export const ScrapingPanel: React.FC = () => {
           >
             <Loader size={16} className="animate-spin" />
             <div>
-              <div className="font-medium">Processando com Apify...</div>
+              <div className="font-medium">Processamento Avançado com Apify...</div>
               <div className="text-xs text-gray-400 mt-1">
-                Coletando dados de múltiplas fontes • Analisando sentimentos • Gerando insights
+                Coletando conteúdo completo • Análise temporal {getTimeRangeDescription()} • {getAnalysisDescription()}
               </div>
             </div>
           </motion.div>
         )}
       </motion.form>
 
-      {/* Trend Data Preview */}
+      {/* Advanced Trend Analysis */}
       {trendData.length > 0 && (
         <motion.div
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           className="bg-[#111111] rounded-xl p-6 border border-gray-800"
         >
-          <h3 className="text-white font-inter font-semibold text-lg mb-4">
-            📊 Análise de Tendências
-          </h3>
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-white font-inter font-semibold text-lg">
+              📊 Análise Temporal Avançada
+            </h3>
+            <div className="text-gray-400 font-inter text-sm">
+              Período: {getTimeRangeDescription()} • {getAnalysisDescription()}
+            </div>
+          </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            {trendData.slice(0, 3).map((trend, index) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+            {trendData.slice(0, 6).map((trend, index) => (
               <div key={trend.keyword} className="bg-gray-900/50 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center justify-between mb-3">
                   <h4 className="text-white font-inter font-medium text-sm">
                     {trend.keyword}
                   </h4>
@@ -369,15 +612,80 @@ export const ScrapingPanel: React.FC = () => {
                       {(trend.sentiment * 100).toFixed(0)}%
                     </span>
                   </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Artigos:</span>
+                    <span className="text-blue-400">
+                      {trend.articles.length}
+                    </span>
+                  </div>
+                  {includeFullContent && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Conteúdo:</span>
+                      <span className="text-green-400">Completo</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Temporal Trend Indicator */}
+                <div className="mt-3 pt-3 border-t border-gray-700">
+                  <div className="flex items-center gap-2">
+                    <Clock size={12} className="text-gray-400" />
+                    <span className="text-gray-400 font-inter text-xs">
+                      Tendência {timeRange}:
+                    </span>
+                    <div className={`flex items-center gap-1 ${
+                      trend.growth > 10 ? 'text-green-400' : 
+                      trend.growth < -10 ? 'text-red-400' : 'text-yellow-400'
+                    }`}>
+                      <TrendingUp size={10} className={trend.growth < 0 ? 'rotate-180' : ''} />
+                      <span className="text-xs font-medium">
+                        {trend.growth > 10 ? 'Alta' : trend.growth < -10 ? 'Baixa' : 'Estável'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
             ))}
           </div>
 
-          <div className="text-center">
-            <span className="text-gray-400 font-inter text-sm">
-              Total: {articles.length} artigos de {trendData.length} tendências analisadas
-            </span>
+          <div className="bg-[#1500FF]/10 border border-[#1500FF]/20 rounded-lg p-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+              <div>
+                <div className="text-[#1500FF] font-inter font-bold text-xl">
+                  {articles.length}
+                </div>
+                <div className="text-gray-400 font-inter text-xs">
+                  Artigos Analisados
+                </div>
+              </div>
+              
+              <div>
+                <div className="text-green-400 font-inter font-bold text-xl">
+                  {trendData.length}
+                </div>
+                <div className="text-gray-400 font-inter text-xs">
+                  Tendências Identificadas
+                </div>
+              </div>
+              
+              <div>
+                <div className="text-yellow-400 font-inter font-bold text-xl">
+                  {timeRange}
+                </div>
+                <div className="text-gray-400 font-inter text-xs">
+                  Período Analisado
+                </div>
+              </div>
+              
+              <div>
+                <div className="text-purple-400 font-inter font-bold text-xl">
+                  {includeFullContent ? 'Full' : 'Basic'}
+                </div>
+                <div className="text-gray-400 font-inter text-xs">
+                  Tipo de Conteúdo
+                </div>
+              </div>
+            </div>
           </div>
         </motion.div>
       )}
@@ -403,19 +711,20 @@ export const ScrapingPanel: React.FC = () => {
           <div className="relative inline-block">
             <BarChart3 size={64} className="text-gray-600 mx-auto mb-6" />
             <div className="absolute -top-2 -right-2 w-6 h-6 bg-[#1500FF] rounded-full flex items-center justify-center">
-              <Zap size={12} className="text-white" />
+              <Clock size={12} className="text-white" />
             </div>
           </div>
           <h3 className="text-white font-inter font-semibold text-xl mb-3">
-            Scraping Profissional com Apify
+            Scraping Pro Avançado com Análise Temporal
           </h3>
           <p className="text-gray-400 font-inter text-lg mb-6">
-            Análise avançada de tendências com IA
+            Análise profunda de tendências com conteúdo completo
           </p>
           <div className="text-gray-500 font-inter text-sm space-y-1">
-            <p>🔍 Scraping de múltiplas fontes em tempo real</p>
-            <p>🧠 Análise de sentimentos com IA</p>
-            <p>📈 Predições e insights automáticos</p>
+            <p>🔍 Scraping de múltiplas fontes com análise temporal</p>
+            <p>📄 Extração de conteúdo completo dos artigos</p>
+            <p>🧠 Análise de sentimentos e predições com IA</p>
+            <p>📊 Configuração flexível de período e profundidade</p>
             <p>⚡ Dados de Google, Twitter, Reddit, News e mais</p>
           </div>
         </motion.div>

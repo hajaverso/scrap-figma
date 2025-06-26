@@ -11,6 +11,9 @@ export interface Article {
   publishDate: string;
   source: string;
   keywords: string[];
+  fullContent?: string; // Novo campo para conteúdo completo
+  engagement?: number; // Métricas de engajamento
+  sentiment?: number; // Análise de sentimento (0-1)
 }
 
 export interface CarouselCard {
@@ -111,17 +114,27 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ isScrapingLoading: true, scrapingError: null, articles: [] });
     
     try {
-      console.log(`🔍 Iniciando scraping profissional com Apify para: "${searchKeyword}"`);
+      console.log(`🔍 Iniciando scraping avançado com Apify para: "${searchKeyword}"`);
       
-      // Usar Apify para scraping profissional
-      const trends = await apifyService.scrapeTrends([searchKeyword]);
+      // Configuração padrão para scraping básico
+      const config = {
+        keywords: [searchKeyword],
+        timeRange: '7d' as const,
+        analysisDepth: 'detailed' as const,
+        includeFullContent: true,
+        sourcePriority: 'all' as const,
+        minEngagement: 10,
+        maxArticlesPerSource: 20
+      };
+      
+      const trends = await apifyService.scrapeAdvancedTrends(config);
       const scrapedArticles = trends.flatMap(trend => trend.articles);
       
       if (scrapedArticles.length === 0) {
         throw new Error('Nenhum artigo encontrado para esta palavra-chave');
       }
       
-      console.log(`✅ Encontrados ${scrapedArticles.length} artigos via Apify`);
+      console.log(`✅ Encontrados ${scrapedArticles.length} artigos com análise avançada`);
       set({ 
         articles: scrapedArticles, 
         isScrapingLoading: false,
@@ -133,7 +146,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ 
         scrapingError: error instanceof Error 
           ? error.message 
-          : 'Erro no scraping profissional. Verifique sua conexão e tente novamente.',
+          : 'Erro no scraping avançado. Verifique sua conexão e tente novamente.',
         isScrapingLoading: false,
         articles: []
       });
