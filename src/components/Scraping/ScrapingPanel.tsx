@@ -1055,7 +1055,7 @@ export const ScrapingPanel: React.FC = () => {
                       {viralStats.lowViralCount}
                     </div>
                     <div className="text-gray-400 font-inter text-xs">
-                      Baixo Potencial (<5)
+                      Baixo Potencial ({'<5'})
                     </div>
                   </div>
                   
