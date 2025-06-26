@@ -78,6 +78,21 @@ export const ArticleTable: React.FC = () => {
     console.log('Artigo enviado para o IA Generator:', selectedArticleData);
   };
 
+  // Verificar se temos artigos válidos
+  if (!articles || articles.length === 0) {
+    return (
+      <div className="bg-[#111111] rounded-xl border border-gray-800 p-8 text-center">
+        <FileText size={48} className="text-gray-600 mx-auto mb-4" />
+        <h3 className="text-white font-inter font-medium text-lg mb-2">
+          Nenhum artigo encontrado
+        </h3>
+        <p className="text-gray-400 font-inter">
+          Execute uma busca para ver os artigos aqui
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-[#111111] rounded-xl border border-gray-800 overflow-hidden">
       <div className="p-6 border-b border-gray-800 flex items-center justify-between">
@@ -153,6 +168,10 @@ export const ArticleTable: React.FC = () => {
                         src={article.imageUrl}
                         alt={article.title}
                         className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = 'https://images.pexels.com/photos/3184431/pexels-photo-3184431.jpeg?w=400';
+                        }}
                       />
                       <div className="flex-1 min-w-0">
                         <h4 className="text-white font-inter font-medium text-sm mb-1 line-clamp-2">
@@ -164,7 +183,7 @@ export const ArticleTable: React.FC = () => {
                         
                         {/* Keywords */}
                         <div className="flex flex-wrap gap-1 mb-2">
-                          {article.keywords.slice(0, 3).map((keyword) => (
+                          {(article.keywords || []).slice(0, 3).map((keyword) => (
                             <span
                               key={keyword}
                               className="inline-flex items-center gap-1 bg-gray-800 text-gray-300 px-2 py-1 rounded text-xs font-inter"
@@ -250,15 +269,15 @@ export const ArticleTable: React.FC = () => {
                             <div className="space-y-1">
                               <div className="flex items-center gap-1 text-xs">
                                 <Brain size={8} className="text-purple-400" />
-                                <span className="text-gray-500">Emoção: {(article as any).viralAnalysis.emotionScore.toFixed(1)}</span>
+                                <span className="text-gray-500">Emoção: {((article as any).viralAnalysis.emotionScore || 0).toFixed(1)}</span>
                               </div>
                               <div className="flex items-center gap-1 text-xs">
                                 <Target size={8} className="text-blue-400" />
-                                <span className="text-gray-500">Clareza: {(article as any).viralAnalysis.clarityScore.toFixed(1)}</span>
+                                <span className="text-gray-500">Clareza: {((article as any).viralAnalysis.clarityScore || 0).toFixed(1)}</span>
                               </div>
                               <div className="flex items-center gap-1 text-xs">
                                 <Palette size={8} className="text-green-400" />
-                                <span className="text-gray-500">Carrossel: {(article as any).viralAnalysis.carouselPotential.toFixed(1)}</span>
+                                <span className="text-gray-500">Carrossel: {((article as any).viralAnalysis.carouselPotential || 0).toFixed(1)}</span>
                               </div>
                             </div>
                           )}
@@ -359,68 +378,70 @@ export const ArticleTable: React.FC = () => {
                                 <div className="bg-gray-800/50 rounded-lg p-3">
                                   <div className="text-gray-400 font-inter text-xs mb-1">Emoção Evocada</div>
                                   <div className={`font-inter text-sm font-semibold ${getViralScoreColor((article as any).viralAnalysis.emotionScore)}`}>
-                                    {(article as any).viralAnalysis.emotionScore.toFixed(1)}/10
+                                    {((article as any).viralAnalysis.emotionScore || 0).toFixed(1)}/10
                                   </div>
                                 </div>
                                 
                                 <div className="bg-gray-800/50 rounded-lg p-3">
                                   <div className="text-gray-400 font-inter text-xs mb-1">Clareza do Título</div>
                                   <div className={`font-inter text-sm font-semibold ${getViralScoreColor((article as any).viralAnalysis.clarityScore)}`}>
-                                    {(article as any).viralAnalysis.clarityScore.toFixed(1)}/10
+                                    {((article as any).viralAnalysis.clarityScore || 0).toFixed(1)}/10
                                   </div>
                                 </div>
                                 
                                 <div className="bg-gray-800/50 rounded-lg p-3">
                                   <div className="text-gray-400 font-inter text-xs mb-1">Potencial Carrossel</div>
                                   <div className={`font-inter text-sm font-semibold ${getViralScoreColor((article as any).viralAnalysis.carouselPotential)}`}>
-                                    {(article as any).viralAnalysis.carouselPotential.toFixed(1)}/10
+                                    {((article as any).viralAnalysis.carouselPotential || 0).toFixed(1)}/10
                                   </div>
                                 </div>
                                 
                                 <div className="bg-gray-800/50 rounded-lg p-3">
                                   <div className="text-gray-400 font-inter text-xs mb-1">Tendência do Assunto</div>
                                   <div className={`font-inter text-sm font-semibold ${getViralScoreColor((article as any).viralAnalysis.trendScore)}`}>
-                                    {(article as any).viralAnalysis.trendScore.toFixed(1)}/10
+                                    {((article as any).viralAnalysis.trendScore || 0).toFixed(1)}/10
                                   </div>
                                 </div>
                                 
                                 <div className="bg-gray-800/50 rounded-lg p-3">
                                   <div className="text-gray-400 font-inter text-xs mb-1">Autoridade da Fonte</div>
                                   <div className={`font-inter text-sm font-semibold ${getViralScoreColor((article as any).viralAnalysis.authorityScore)}`}>
-                                    {(article as any).viralAnalysis.authorityScore.toFixed(1)}/10
+                                    {((article as any).viralAnalysis.authorityScore || 0).toFixed(1)}/10
                                   </div>
                                 </div>
                               </div>
 
                               {/* IA Insights */}
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div>
-                                  <h6 className="text-green-400 font-inter font-medium text-xs mb-2">✅ Pontos Fortes</h6>
-                                  <ul className="text-gray-300 font-inter text-xs space-y-1">
-                                    {(article as any).viralAnalysis.analysis.strengths.map((strength: string, idx: number) => (
-                                      <li key={idx}>• {strength}</li>
-                                    ))}
-                                  </ul>
+                              {(article as any).viralAnalysis.analysis && (
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                  <div>
+                                    <h6 className="text-green-400 font-inter font-medium text-xs mb-2">✅ Pontos Fortes</h6>
+                                    <ul className="text-gray-300 font-inter text-xs space-y-1">
+                                      {((article as any).viralAnalysis.analysis.strengths || []).map((strength: string, idx: number) => (
+                                        <li key={idx}>• {strength}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                  
+                                  <div>
+                                    <h6 className="text-red-400 font-inter font-medium text-xs mb-2">⚠️ Pontos Fracos</h6>
+                                    <ul className="text-gray-300 font-inter text-xs space-y-1">
+                                      {((article as any).viralAnalysis.analysis.weaknesses || []).map((weakness: string, idx: number) => (
+                                        <li key={idx}>• {weakness}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                  
+                                  <div>
+                                    <h6 className="text-blue-400 font-inter font-medium text-xs mb-2">💡 Recomendações</h6>
+                                    <ul className="text-gray-300 font-inter text-xs space-y-1">
+                                      {((article as any).viralAnalysis.analysis.recommendations || []).map((rec: string, idx: number) => (
+                                        <li key={idx}>• {rec}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
                                 </div>
-                                
-                                <div>
-                                  <h6 className="text-red-400 font-inter font-medium text-xs mb-2">⚠️ Pontos Fracos</h6>
-                                  <ul className="text-gray-300 font-inter text-xs space-y-1">
-                                    {(article as any).viralAnalysis.analysis.weaknesses.map((weakness: string, idx: number) => (
-                                      <li key={idx}>• {weakness}</li>
-                                    ))}
-                                  </ul>
-                                </div>
-                                
-                                <div>
-                                  <h6 className="text-blue-400 font-inter font-medium text-xs mb-2">💡 Recomendações</h6>
-                                  <ul className="text-gray-300 font-inter text-xs space-y-1">
-                                    {(article as any).viralAnalysis.analysis.recommendations.map((rec: string, idx: number) => (
-                                      <li key={idx}>• {rec}</li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              </div>
+                              )}
                             </div>
                           )}
 
@@ -429,7 +450,7 @@ export const ArticleTable: React.FC = () => {
                             <div className="bg-gray-800/50 rounded-lg p-3">
                               <div className="text-gray-400 font-inter text-xs mb-1">Análise de Sentimento</div>
                               <div className={`font-inter text-sm font-semibold ${getSentimentColor((article as any).sentiment)}`}>
-                                {getSentimentLabel((article as any).sentiment)} ({((article as any).sentiment * 100).toFixed(0)}%)
+                                {getSentimentLabel((article as any).sentiment)} ({(((article as any).sentiment || 0) * 100).toFixed(0)}%)
                               </div>
                             </div>
                             
@@ -443,7 +464,7 @@ export const ArticleTable: React.FC = () => {
                             <div className="bg-gray-800/50 rounded-lg p-3">
                               <div className="text-gray-400 font-inter text-xs mb-1">Palavras-chave</div>
                               <div className="text-white font-inter text-sm">
-                                {article.keywords.length} identificadas
+                                {(article.keywords || []).length} identificadas
                               </div>
                             </div>
                           </div>

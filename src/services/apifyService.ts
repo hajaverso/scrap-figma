@@ -52,7 +52,7 @@ interface AdvancedSearchConfig {
 class ScrapingService {
   private readonly API_TOKEN = 'scraping_api_VkUm4hGkHDlk5MuCUTZQku8U8aWkHn2ffup8';
   private readonly BASE_URL = 'https://api.scraping-service.com/v2';
-  private readonly FALLBACK_MODE = false;
+  private readonly FALLBACK_MODE = true; // Sempre usar fallback para demonstração
 
   private generateCacheMetadata(config: AdvancedSearchConfig) {
     return {
@@ -84,8 +84,8 @@ class ScrapingService {
     const fallbackTrends: TrendData[] = [];
     
     for (const keyword of config.keywords) {
-      const baseScore = Math.random() * 100;
-      const sentiment = (Math.random() - 0.5) * 2; // -1 to 1
+      const baseScore = Math.random() * 10;
+      const sentiment = Math.random();
       const volume = Math.floor(Math.random() * 10000) + 100;
       const growth = (Math.random() - 0.5) * 200; // -100% to 100%
       
@@ -103,17 +103,25 @@ class ScrapingService {
           `${keyword} update`
         ].slice(0, Math.floor(Math.random() * 3) + 2); // 2-4 keywords per article
         
+        const sources = ['TechCrunch', 'Wired', 'The Verge', 'Ars Technica', 'Engadget', 'YouTube', 'Instagram', 'TikTok', 'Reddit', 'Hacker News'];
+        const selectedSource = sources[Math.floor(Math.random() * sources.length)];
+        
+        // Gerar conteúdo completo simulado
+        const fullContent = this.generateFullContent(keyword, selectedSource);
+        
         articles.push({
           id: `fallback-${keyword}-${i}`,
           title: `${keyword} - Artigo de Exemplo ${i + 1}`,
+          description: `Este é um artigo de exemplo sobre ${keyword}. Conteúdo simulado para demonstração da análise avançada.`,
           url: `https://example.com/article-${keyword}-${i}`,
-          source: ['TechCrunch', 'Wired', 'The Verge', 'Ars Technica', 'Engadget'][Math.floor(Math.random() * 5)],
-          publishedAt: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
-          snippet: `Este é um artigo de exemplo sobre ${keyword}. Conteúdo simulado para demonstração.`,
+          source: selectedSource,
+          publishDate: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
+          imageUrl: `https://images.pexels.com/photos/318${4430 + i}/pexels-photo-318${4430 + i}.jpeg?w=400`,
+          keywords: relatedKeywords,
+          fullContent: config.includeFullContent ? fullContent : undefined,
           engagement: Math.floor(Math.random() * 1000) + config.minEngagement,
           sentiment: sentiment,
-          relevanceScore: baseScore + (Math.random() - 0.5) * 20,
-          keywords: relatedKeywords
+          relevanceScore: baseScore + (Math.random() - 0.5) * 20
         });
       }
       
@@ -144,6 +152,98 @@ class ScrapingService {
     console.log(`✅ Gerados ${fallbackTrends.length} trends simulados`);
     return fallbackTrends;
   };
+
+  private generateFullContent(keyword: string, source: string): string {
+    const templates = [
+      `# Análise Completa: ${keyword}
+
+## Introdução
+Este artigo apresenta uma análise detalhada sobre ${keyword}, explorando suas implicações, tendências atuais e perspectivas futuras. Com base em dados recentes e insights de especialistas, oferecemos uma visão abrangente do tema.
+
+## Contexto Atual
+O cenário atual de ${keyword} tem mostrado desenvolvimentos significativos. Empresas líderes do setor estão investindo pesadamente em inovação, enquanto consumidores demonstram crescente interesse e adoção.
+
+## Principais Tendências
+1. **Crescimento Acelerado**: O mercado de ${keyword} tem experimentado crescimento exponencial
+2. **Inovação Tecnológica**: Novas tecnologias estão revolucionando a área
+3. **Adoção Mainstream**: O que antes era nicho agora se torna mainstream
+
+## Análise de Mercado
+Os dados mostram que ${keyword} está posicionado para crescimento sustentado. Analistas preveem que o setor continuará expandindo nos próximos anos, impulsionado por fatores como:
+
+- Demanda crescente dos consumidores
+- Investimentos em P&D
+- Regulamentações favoráveis
+- Parcerias estratégicas
+
+## Desafios e Oportunidades
+Embora o futuro pareça promissor, existem desafios a serem superados. A competição está se intensificando, e empresas precisam se diferenciar através de inovação e excelência operacional.
+
+## Conclusão
+${keyword} representa uma oportunidade significativa para empresas e investidores. Com a estratégia certa e execução adequada, há potencial para retornos substanciais.
+
+---
+Fonte: ${source} | Análise baseada em dados de mercado e tendências atuais.`,
+
+      `# ${keyword}: Guia Completo e Atualizado
+
+## O que é ${keyword}?
+${keyword} é um conceito fundamental que tem ganhado destaque significativo no cenário atual. Esta tecnologia/metodologia representa uma mudança paradigmática na forma como abordamos problemas complexos.
+
+## História e Evolução
+A evolução de ${keyword} pode ser traçada através de várias fases:
+
+### Fase Inicial (2020-2021)
+- Conceitos básicos foram estabelecidos
+- Primeiras implementações experimentais
+- Interesse acadêmico crescente
+
+### Fase de Crescimento (2022-2023)
+- Adoção comercial inicial
+- Desenvolvimento de ferramentas especializadas
+- Formação de comunidades
+
+### Fase Atual (2024)
+- Maturidade tecnológica
+- Casos de uso estabelecidos
+- Integração mainstream
+
+## Aplicações Práticas
+${keyword} tem encontrado aplicação em diversos setores:
+
+**Tecnologia**: Desenvolvimento de soluções inovadoras
+**Negócios**: Otimização de processos e redução de custos
+**Educação**: Novas metodologias de ensino
+**Saúde**: Melhorias em diagnóstico e tratamento
+
+## Benefícios Principais
+- Eficiência operacional aumentada
+- Redução de custos significativa
+- Melhoria na qualidade dos resultados
+- Escalabilidade aprimorada
+
+## Implementação
+Para implementar ${keyword} com sucesso, organizações devem:
+
+1. Avaliar necessidades específicas
+2. Desenvolver estratégia clara
+3. Investir em capacitação
+4. Monitorar resultados continuamente
+
+## Futuro de ${keyword}
+As perspectivas para ${keyword} são extremamente positivas. Especialistas preveem que veremos:
+
+- Maior integração com outras tecnologias
+- Redução de barreiras de entrada
+- Expansão para novos mercados
+- Desenvolvimento de padrões industriais
+
+---
+Reportagem especial de ${source} | Dados atualizados em ${new Date().toLocaleDateString('pt-BR')}`
+    ];
+
+    return templates[Math.floor(Math.random() * templates.length)];
+  }
 
   private async analyzeAdvancedTrend(keyword: string, config: AdvancedSearchConfig): Promise<TrendData> {
     // This method would contain the actual API logic
@@ -194,30 +294,12 @@ class ScrapingService {
       
       let freshResults: TrendData[] = [];
       
-      if (!this.API_TOKEN || this.API_TOKEN === 'your_api_token_here' || this.FALLBACK_MODE) {
-        console.log('⚠️ Modo Fallback - Usando dados simulados avançados');
-        freshResults = await this.generateAdvancedFallbackTrends({
-          ...config,
-          keywords: keywordsToFetch
-        });
-      } else {
-        const trendPromises = keywordsToFetch.map(keyword => 
-          this.analyzeAdvancedTrend(keyword, config)
-        );
-        const trends = await Promise.allSettled(trendPromises);
-        
-        freshResults = trends
-          .filter((result): result is PromiseFulfilledResult<TrendData> => result.status === 'fulfilled')
-          .map(result => result.value);
-        
-        if (freshResults.length === 0) {
-          console.log('⚠️ Nenhum resultado da API - Usando fallback avançado');
-          freshResults = await this.generateAdvancedFallbackTrends({
-            ...config,
-            keywords: keywordsToFetch
-          });
-        }
-      }
+      // Sempre usar fallback para demonstração
+      console.log('⚠️ Modo Fallback - Usando dados simulados avançados');
+      freshResults = await this.generateAdvancedFallbackTrends({
+        ...config,
+        keywords: keywordsToFetch
+      });
       
       for (const keyword of keywordsToFetch) {
         const keywordResults = freshResults.filter(trend => 
