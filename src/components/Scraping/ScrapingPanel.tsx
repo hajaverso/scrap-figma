@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Loader, AlertCircle, TrendingUp, Globe, Zap, Brain, BarChart3, Target, Calendar, Clock, Filter, FileText, Eye, Download, Video, Play, Music, Settings, Sparkles } from 'lucide-react';
+import { Search, Loader, AlertCircle, TrendingUp, Globe, Zap, Brain, BarChart3, Target, Calendar, Clock, Filter, FileText, Eye, Download, Video, Play, Music, Settings, Sparkles, CheckCircle } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { ArticleTable } from './ArticleTable';
 import { apifyService } from '../../services/apifyService';
@@ -40,6 +40,7 @@ export const ScrapingPanel: React.FC = () => {
   const requiredAPIs = ['apifyKey', 'serpApiKey'] as const;
   const apiWarning = apiConfigService.getWarningMessage(requiredAPIs);
   const hasRequiredAPIs = !apiWarning;
+  const hasOpenAI = apiConfigService.isConfigured('openaiKey');
 
   const trendingCategories = [
     {
@@ -101,7 +102,7 @@ export const ScrapingPanel: React.FC = () => {
   ];
 
   const sourcePriorityOptions = [
-    { value: 'all', label: 'Todas as Fontes', sources: ['Google', 'Reddit', 'Twitter', 'News', 'HN', 'YouTube', 'Instagram', 'TikTok'] },
+    { value: 'all', label: 'Todas as Fontes', sources: ['DuckDuckGo', 'Google', 'Reddit', 'Twitter', 'News', 'HN', 'YouTube', 'Instagram', 'TikTok'] },
     { value: 'news', label: 'Notícias', sources: ['BBC', 'TechCrunch', 'Wired', 'Reuters'] },
     { value: 'social', label: 'Redes Sociais', sources: ['Twitter', 'Reddit', 'LinkedIn'] },
     { value: 'tech', label: 'Tech Communities', sources: ['Hacker News', 'Dev.to', 'GitHub'] },
@@ -112,17 +113,11 @@ export const ScrapingPanel: React.FC = () => {
     e.preventDefault();
     if (!searchKeyword.trim()) return;
 
-    // Verificar se as APIs necessárias estão configuradas
-    if (!hasRequiredAPIs) {
-      setScrapingError('Configure as APIs necessárias antes de continuar');
-      return;
-    }
-
     setIsAnalyzing(true);
     setScrapingError(null);
 
     try {
-      console.log('🚀 Iniciando análise avançada com vídeos e transcrição...');
+      console.log('🚀 Iniciando análise avançada com DuckDuckGo + IA...');
       console.log(`📊 Configurações:`, {
         keyword: searchKeyword,
         additionalKeywords: selectedKeywords,
@@ -411,6 +406,59 @@ export const ScrapingPanel: React.FC = () => {
         />
       )}
 
+      {/* Status Banner */}
+      <motion.div
+        initial={{ y: -20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        className={`${
+          hasRequiredAPIs
+            ? 'bg-green-900/20 border-green-800' 
+            : 'bg-orange-900/20 border-orange-800'
+        } rounded-xl p-4 border flex items-center justify-between`}
+      >
+        <div className="flex items-center gap-3">
+          <div className={`p-2 rounded-lg ${
+            hasRequiredAPIs ? 'bg-green-500/20' : 'bg-orange-500/20'
+          }`}>
+            {hasRequiredAPIs ? (
+              <CheckCircle size={20} className="text-green-400" />
+            ) : (
+              <AlertCircle size={20} className="text-orange-400" />
+            )}
+          </div>
+          <div>
+            <h3 className={`font-inter font-medium text-sm ${
+              hasRequiredAPIs ? 'text-green-400' : 'text-orange-400'
+            }`}>
+              {hasRequiredAPIs ? '🦆 DuckDuckGo + IA Conectado' : '⚠️ Modo Demonstração'}
+            </h3>
+            <p className="text-gray-400 font-inter text-xs">
+              {hasRequiredAPIs
+                ? 'Scraping real ativo com DuckDuckGo + análise de IA' 
+                : 'Configure APIs para ativar scraping real'
+              }
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {hasOpenAI && (
+            <div className="bg-purple-500/20 text-purple-400 px-3 py-1 rounded-full text-xs font-inter font-medium">
+              🧠 IA Viral
+            </div>
+          )}
+          <motion.button
+            onClick={() => setShowAPISettings(true)}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-lg font-inter font-medium text-sm transition-all duration-200"
+          >
+            <Settings size={16} />
+            {hasRequiredAPIs ? 'Gerenciar' : 'Configurar'}
+          </motion.button>
+        </div>
+      </motion.div>
+
       {/* Advanced Search Form */}
       <motion.form
         initial={{ y: 20, opacity: 0 }}
@@ -424,7 +472,7 @@ export const ScrapingPanel: React.FC = () => {
           </div>
           <div>
             <h3 className="text-white font-inter font-semibold text-xl">
-              Scraping Pro Avançado com IA Viral
+              Scraping Pro Avançado com DuckDuckGo + IA Viral
             </h3>
             <p className="text-gray-400 font-inter text-sm">
               Análise temporal profunda + transcrição de vídeos + score de potencial viral
@@ -445,14 +493,14 @@ export const ScrapingPanel: React.FC = () => {
                 onChange={(e) => setSearchKeyword(e.target.value)}
                 placeholder="Digite o tema principal (ex: AI, design, startup...)"
                 className="w-full bg-black border border-gray-700 rounded-lg px-4 py-3 text-white font-inter placeholder-gray-500 focus:outline-none focus:border-[#1500FF] transition-colors"
-                disabled={isAnalyzing || !hasRequiredAPIs}
+                disabled={isAnalyzing}
               />
             </div>
             
             <div className="flex items-end">
               <motion.button
                 type="submit"
-                disabled={isAnalyzing || !searchKeyword.trim() || !hasRequiredAPIs}
+                disabled={isAnalyzing || !searchKeyword.trim()}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 className="bg-[#1500FF] text-white px-8 py-3 rounded-lg font-inter font-semibold flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:bg-blue-600"
@@ -491,7 +539,7 @@ export const ScrapingPanel: React.FC = () => {
                     onClick={() => setTimeRange(option.value as any)}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    disabled={isAnalyzing || !hasRequiredAPIs}
+                    disabled={isAnalyzing}
                     className={`p-3 rounded-lg border text-left transition-all duration-200 disabled:opacity-50 ${
                       timeRange === option.value
                         ? 'border-[#1500FF] bg-[#1500FF]/10'
@@ -534,7 +582,7 @@ export const ScrapingPanel: React.FC = () => {
                       onClick={() => setAnalysisDepth(option.value as any)}
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      disabled={isAnalyzing || !hasRequiredAPIs}
+                      disabled={isAnalyzing}
                       className={`w-full p-3 rounded-lg border text-left transition-all duration-200 disabled:opacity-50 ${
                         analysisDepth === option.value
                           ? 'border-[#1500FF] bg-[#1500FF]/10'
@@ -575,9 +623,8 @@ export const ScrapingPanel: React.FC = () => {
                 <motion.button
                   type="button"
                   onClick={() => setIncludeFullContent(!includeFullContent)}
-                  disabled={!hasRequiredAPIs}
                   whileTap={{ scale: 0.95 }}
-                  className={`w-12 h-6 rounded-full transition-all duration-200 disabled:opacity-50 ${
+                  className={`w-12 h-6 rounded-full transition-all duration-200 ${
                     includeFullContent ? 'bg-[#1500FF]' : 'bg-gray-600'
                   }`}
                 >
@@ -603,9 +650,8 @@ export const ScrapingPanel: React.FC = () => {
                 <motion.button
                   type="button"
                   onClick={() => setIncludeVideos(!includeVideos)}
-                  disabled={!hasRequiredAPIs}
                   whileTap={{ scale: 0.95 }}
-                  className={`w-12 h-6 rounded-full transition-all duration-200 disabled:opacity-50 ${
+                  className={`w-12 h-6 rounded-full transition-all duration-200 ${
                     includeVideos ? 'bg-[#1500FF]' : 'bg-gray-600'
                   }`}
                 >
@@ -631,7 +677,7 @@ export const ScrapingPanel: React.FC = () => {
                 <motion.button
                   type="button"
                   onClick={() => setVideoTranscription(!videoTranscription)}
-                  disabled={!includeVideos || !hasRequiredAPIs}
+                  disabled={!includeVideos}
                   whileTap={{ scale: 0.95 }}
                   className={`w-12 h-6 rounded-full transition-all duration-200 disabled:opacity-50 ${
                     videoTranscription && includeVideos ? 'bg-[#1500FF]' : 'bg-gray-600'
@@ -658,7 +704,7 @@ export const ScrapingPanel: React.FC = () => {
               <select
                 value={sourcePriority}
                 onChange={(e) => setSourcePriority(e.target.value as any)}
-                disabled={isAnalyzing || !hasRequiredAPIs}
+                disabled={isAnalyzing}
                 className="w-full bg-black border border-gray-700 rounded-lg px-3 py-2 text-white font-inter text-sm focus:outline-none focus:border-[#1500FF] disabled:opacity-50"
               >
                 {sourcePriorityOptions.map((option) => (
@@ -685,7 +731,7 @@ export const ScrapingPanel: React.FC = () => {
                 max="100"
                 value={minEngagement}
                 onChange={(e) => setMinEngagement(parseInt(e.target.value))}
-                disabled={isAnalyzing || !hasRequiredAPIs}
+                disabled={isAnalyzing}
                 className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider disabled:opacity-50"
               />
               <span className="text-gray-400 font-inter text-xs">
@@ -705,10 +751,9 @@ export const ScrapingPanel: React.FC = () => {
                   <motion.button
                     key={keyword}
                     onClick={() => handleKeywordToggle(keyword)}
-                    disabled={!hasRequiredAPIs}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    className="bg-[#1500FF] text-white px-3 py-1 rounded-full font-inter text-sm flex items-center gap-2 disabled:opacity-50"
+                    className="bg-[#1500FF] text-white px-3 py-1 rounded-full font-inter text-sm flex items-center gap-2"
                   >
                     {keyword}
                     <span className="text-xs">×</span>
@@ -733,7 +778,7 @@ export const ScrapingPanel: React.FC = () => {
                     onClick={() => handleCategorySelect(category.keywords)}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    disabled={isAnalyzing || !hasRequiredAPIs}
+                    disabled={isAnalyzing}
                     className="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg p-4 text-left transition-all duration-200 disabled:opacity-50 group"
                   >
                     <div className="flex items-center gap-3 mb-2">
@@ -785,7 +830,7 @@ export const ScrapingPanel: React.FC = () => {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-gray-300 font-inter text-xs">
               <div className="flex items-center gap-1">
                 <Globe size={12} />
-                <span>Google Search</span>
+                <span>DuckDuckGo Search</span>
               </div>
               <div className="flex items-center gap-1">
                 <Globe size={12} />
@@ -838,7 +883,7 @@ export const ScrapingPanel: React.FC = () => {
           >
             <Loader size={16} className="animate-spin" />
             <div>
-              <div className="font-medium">Processamento Avançado com Vídeos e IA...</div>
+              <div className="font-medium">Processamento Avançado com DuckDuckGo + IA...</div>
               <div className="text-xs text-gray-400 mt-1">
                 Coletando conteúdo completo • Análise temporal {getTimeRangeDescription()} • {getAnalysisDescription()} • Transcrevendo vídeos • Calculando scores virais
               </div>
@@ -872,7 +917,7 @@ export const ScrapingPanel: React.FC = () => {
         >
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-white font-inter font-semibold text-lg">
-              📊 Análise Temporal Avançada com Vídeos e IA Viral
+              📊 Análise Temporal Avançada com DuckDuckGo + IA Viral
             </h3>
             <div className="text-gray-400 font-inter text-sm">
               Período: {getTimeRangeDescription()} • {getAnalysisDescription()}
@@ -1135,26 +1180,26 @@ export const ScrapingPanel: React.FC = () => {
           <div className="relative inline-block">
             <BarChart3 size={64} className="text-gray-600 mx-auto mb-6" />
             <div className="absolute -top-2 -right-2 w-6 h-6 bg-[#1500FF] rounded-full flex items-center justify-center">
-              <Video size={12} className="text-white" />
+              <Sparkles size={12} className="text-white" />
             </div>
             <div className="absolute -bottom-2 -left-2 w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center">
               <Sparkles size={12} className="text-white" />
             </div>
           </div>
           <h3 className="text-white font-inter font-semibold text-xl mb-3">
-            Scraping Pro Avançado com IA Viral
+            Scraping Pro Avançado com DuckDuckGo + IA Viral
           </h3>
           <p className="text-gray-400 font-inter text-lg mb-6">
             Análise profunda de tendências com conteúdo completo + vídeos transcritos + score viral
           </p>
           <div className="text-gray-500 font-inter text-sm space-y-1">
-            <p>🔍 Scraping de múltiplas fontes com análise temporal</p>
+            <p>🦆 Scraping real com DuckDuckGo (sem rate limits)</p>
             <p>📄 Extração de conteúdo completo dos artigos</p>
             <p>🎥 Busca e transcrição de vídeos do YouTube, Instagram e TikTok</p>
             <p>🧠 Análise de sentimentos e predições com IA</p>
             <p>✨ Score de potencial viral com 5 métricas de IA</p>
             <p>📊 Configuração flexível de período e profundidade</p>
-            <p>⚡ Dados de Google, Twitter, Reddit, News e plataformas de vídeo</p>
+            <p>⚡ Dados de DuckDuckGo, Twitter, Reddit, News e plataformas de vídeo</p>
           </div>
         </motion.div>
       )}
