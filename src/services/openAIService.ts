@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { Article, CarouselCard } from '../store/useAppStore';
+import { apiConfigService } from './apiConfigService';
 
 interface CarouselPrompt {
   articles: Article[];
@@ -27,8 +28,8 @@ class OpenAIService {
   private apiKey: string | null = null;
 
   constructor() {
-    // Tentar recuperar a API key do localStorage
-    const savedApiKey = localStorage.getItem('openai_api_key');
+    // Tentar recuperar a API key do serviço de configuração
+    const savedApiKey = apiConfigService.getConfig('openaiKey');
     if (savedApiKey) {
       this.setApiKey(savedApiKey);
     }
@@ -40,7 +41,8 @@ class OpenAIService {
       apiKey: apiKey,
       dangerouslyAllowBrowser: true // Para uso no frontend - em produção, usar backend
     });
-    localStorage.setItem('openai_api_key', apiKey);
+    // Salvar no serviço de configuração
+    apiConfigService.saveConfig({ openaiKey: apiKey });
   }
 
   getApiKey(): string | null {
@@ -54,7 +56,113 @@ class OpenAIService {
   clearApiKey() {
     this.apiKey = null;
     this.openai = null;
-    localStorage.removeItem('openai_api_key');
+    apiConfigService.clearConfig('openaiKey');
+  }
+
+  /**
+   * Avalia o potencial de viralização de um artigo no Instagram usando GPT-4
+   * @param title - Título do artigo
+   * @param summary - Resumo/descrição do artigo
+   * @param url - URL do artigo
+   * @returns Score de 0 a 10 representando o potencial viral
+   */
+  async rateArticlePotential(title: string, summary: string, url: string): Promise<number> {
+    if (!this.openai) {
+      throw new Error('OpenAI não configurado. Configure sua API key primeiro.');
+    }
+
+    console.log(`🧠 Avaliando potencial viral: "${title}"`);
+
+    try {
+      const systemPrompt = `Você é um especialista em marketing digital e viralização de conteúdo no Instagram.
+
+Sua tarefa é avaliar o potencial de viralização de um artigo no Instagram baseado em 4 critérios principais:
+
+1. CLAREZA (0-10): Quão claro e compreensível é o título e conteúdo
+2. EMOÇÃO (0-10): Capacidade de evocar emoções fortes (curiosidade, surpresa, inspiração, etc.)
+3. TENDÊNCIA (0-10): Relevância com tópicos em alta e tendências atuais
+4. ORIGINALIDADE (0-10): Quão único e diferenciado é o conteúdo
+
+Analise cada critério e retorne APENAS UM NÚMERO de 0 a 10 (com uma casa decimal) representando o score geral.
+
+Exemplos de scores:
+- 9.5: Conteúdo extremamente viral (título impactante, emoção alta, super atual)
+- 7.0: Bom potencial viral (interessante, claro, relevante)
+- 5.0: Potencial médio (neutro, sem grandes destaques)
+- 3.0: Baixo potencial (confuso, sem emoção, desatualizado)
+- 1.0: Muito baixo potencial (irrelevante, mal escrito)
+
+Responda APENAS com o número (ex: 7.3)`;
+
+      const userPrompt = `Avalie o potencial de viralização no Instagram:
+
+TÍTULO: ${title}
+
+RESUMO: ${summary}
+
+URL: ${url}
+
+Considere:
+- Clareza: O título é fácil de entender?
+- Emoção: Desperta curiosidade, surpresa ou inspiração?
+- Tendência: É sobre algo atual e relevante?
+- Originalidade: Traz uma perspectiva única?
+
+Retorne apenas o score de 0 a 10:`;
+
+      const completion = await this.openai.chat.completions.create({
+        model: 'gpt-4',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        temperature: 0.3,
+        max_tokens: 10
+      });
+
+      const response = completion.choices[0]?.message?.content?.trim();
+      
+      if (!response) {
+        throw new Error('Resposta vazia da OpenAI');
+      }
+
+      console.log(`🤖 Resposta da OpenAI: "${response}"`);
+
+      // Extrair o número da resposta
+      const scoreMatch = response.match(/(\d+\.?\d*)/);
+      if (!scoreMatch) {
+        throw new Error('Score não encontrado na resposta');
+      }
+
+      const score = parseFloat(scoreMatch[1]);
+      
+      // Validar se o score está no range correto
+      if (isNaN(score) || score < 0 || score > 10) {
+        throw new Error(`Score inválido: ${score}`);
+      }
+
+      console.log(`✅ Score de potencial viral: ${score}/10 para "${title}"`);
+      return Math.round(score * 10) / 10; // Arredondar para 1 casa decimal
+
+    } catch (error) {
+      console.error('❌ Erro na avaliação de potencial viral:', error);
+      
+      if (error instanceof Error) {
+        if (error.message.includes('API key')) {
+          throw new Error('API key inválida. Verifique sua chave da OpenAI.');
+        }
+        if (error.message.includes('quota')) {
+          throw new Error('Cota da OpenAI excedida. Verifique seu plano.');
+        }
+        if (error.message.includes('rate limit')) {
+          throw new Error('Limite de requisições excedido. Tente novamente em alguns segundos.');
+        }
+      }
+      
+      // Em caso de erro, retornar score neutro
+      console.log('🔄 Retornando score neutro devido ao erro');
+      return 5.0;
+    }
   }
 
   async generateCarouselCards({ articles, style, customPrompt, cardCount = 5, language = 'pt' }: CarouselPrompt): Promise<CarouselCard[]> {
