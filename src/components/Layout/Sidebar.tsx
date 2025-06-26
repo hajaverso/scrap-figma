@@ -37,7 +37,7 @@ export const Sidebar: React.FC = () => {
               <Layers size={20} className="text-white" />
             </div>
             <div>
-              <h1 className="text-white font-inter font-semibold text-lg">Scrap Pro</h1>
+              <h1 className="text-white font-inter font-semibold text-lg">Haja®Yodea</h1>
               <p className="text-gray-400 font-inter text-xs">Sistema Inteligente</p>
             </div>
           </div>
