@@ -94,6 +94,15 @@ class ScrapingService {
       const numArticles = Math.min(config.maxArticlesPerSource, Math.floor(Math.random() * 15) + 5);
       
       for (let i = 0; i < numArticles; i++) {
+        // Generate related keywords for each article
+        const relatedKeywords = [
+          keyword,
+          `${keyword} trends`,
+          `${keyword} analysis`,
+          `${keyword} news`,
+          `${keyword} update`
+        ].slice(0, Math.floor(Math.random() * 3) + 2); // 2-4 keywords per article
+        
         articles.push({
           id: `fallback-${keyword}-${i}`,
           title: `${keyword} - Artigo de Exemplo ${i + 1}`,
@@ -103,7 +112,8 @@ class ScrapingService {
           snippet: `Este é um artigo de exemplo sobre ${keyword}. Conteúdo simulado para demonstração.`,
           engagement: Math.floor(Math.random() * 1000) + config.minEngagement,
           sentiment: sentiment,
-          relevanceScore: baseScore + (Math.random() - 0.5) * 20
+          relevanceScore: baseScore + (Math.random() - 0.5) * 20,
+          keywords: relatedKeywords
         });
       }
       
