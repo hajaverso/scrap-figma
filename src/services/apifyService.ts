@@ -32,6 +32,11 @@ interface PredictionData {
   timeframe: string;
 }
 
+interface PredictionResult {
+  scorePrevisto: number;
+  confianca: number;
+}
+
 interface AdvancedSearchConfig {
   keywords: string[];
   timeRange: '1d' | '3d' | '7d' | '14d' | '30d';
@@ -247,6 +252,159 @@ class ScrapingService {
     };
     
     return this.scrapeAdvancedTrends(config);
+  }
+
+  /**
+   * Gera previsões de score futuro baseado em uma palavra-chave específica
+   * @param keyword - Palavra-chave para análise
+   * @returns Objeto com score previsto e confiança
+   */
+  async generatePredictions(keyword: string): Promise<PredictionResult>;
+  async generatePredictions(trends: TrendData[]): Promise<PredictionData[]>;
+  async generatePredictions(input: string | TrendData[]): Promise<PredictionResult | PredictionData[]> {
+    // Sobrecarga para palavra-chave única
+    if (typeof input === 'string') {
+      const keyword = input;
+      console.log(`🔮 Gerando previsão para palavra-chave: "${keyword}"`);
+      
+      try {
+        // Buscar dados mais recentes da tendência
+        const config: AdvancedSearchConfig = {
+          keywords: [keyword],
+          timeRange: '7d',
+          analysisDepth: 'detailed',
+          includeFullContent: true,
+          sourcePriority: 'all',
+          minEngagement: 10,
+          maxArticlesPerSource: 15,
+          includeVideos: true,
+          videoTranscription: true
+        };
+        
+        const trends = await this.scrapeAdvancedTrends(config);
+        
+        if (trends.length === 0) {
+          console.warn(`⚠️ Nenhuma tendência encontrada para "${keyword}"`);
+          return {
+            scorePrevisto: 5.0,
+            confianca: 50
+          };
+        }
+        
+        const trend = trends[0];
+        const prediction = this.calculatePrediction(trend);
+        
+        console.log(`✅ Previsão gerada para "${keyword}": Score ${prediction.scorePrevisto.toFixed(1)}, Confiança ${prediction.confianca}%`);
+        
+        return prediction;
+      } catch (error) {
+        console.error(`❌ Erro ao gerar previsão para "${keyword}":`, error);
+        return {
+          scorePrevisto: 5.0,
+          confianca: 50
+        };
+      }
+    }
+    
+    // Sobrecarga para array de tendências
+    const trends = input;
+    console.log(`🔮 Gerando previsões para ${trends.length} tendências`);
+    
+    return trends.map(trend => {
+      const prediction = this.calculatePrediction(trend);
+      
+      const change = prediction.scorePrevisto - trend.score;
+      let trendDirection: 'rising' | 'falling' | 'stable';
+      
+      if (change > 0.5) trendDirection = 'rising';
+      else if (change < -0.5) trendDirection = 'falling';
+      else trendDirection = 'stable';
+      
+      return {
+        keyword: trend.keyword,
+        currentScore: trend.score,
+        predictedScore: prediction.scorePrevisto,
+        trend: trendDirection,
+        confidence: prediction.confianca / 100, // Converter para 0-1
+        timeframe: '7 days'
+      };
+    });
+  }
+
+  /**
+   * Calcula a previsão de score baseado nos dados da tendência
+   * @param trend - Dados da tendência atual
+   * @returns Objeto com score previsto e confiança
+   */
+  private calculatePrediction(trend: TrendData): PredictionResult {
+    const currentScore = Math.max(0, Math.min(10, trend.score || 5));
+    const growth = trend.growth || 0;
+    const sentiment = Math.max(0, Math.min(1, trend.sentiment || 0.5));
+    const volume = Math.max(0, trend.volume || 100);
+    
+    console.log(`📊 Analisando tendência "${trend.keyword}":`, {
+      currentScore: currentScore.toFixed(1),
+      growth: growth.toFixed(1) + '%',
+      sentiment: (sentiment * 100).toFixed(0) + '%',
+      volume
+    });
+    
+    let scoreAdjustment = 0;
+    let confidenceBase = 95; // Confiança sempre fixa em 95%
+    
+    // Lógica preditiva baseada no crescimento
+    if (growth > 80) {
+      // Crescimento muito alto: aumentar até 2 pontos
+      scoreAdjustment = 1.5 + Math.random() * 0.5; // 1.5 a 2.0
+      console.log(`📈 Crescimento alto (${growth.toFixed(1)}%): +${scoreAdjustment.toFixed(1)} pontos`);
+    } else if (growth >= 30 && growth <= 80) {
+      // Crescimento médio: aumentar até 1 ponto
+      scoreAdjustment = 0.5 + Math.random() * 0.5; // 0.5 a 1.0
+      console.log(`📊 Crescimento médio (${growth.toFixed(1)}%): +${scoreAdjustment.toFixed(1)} pontos`);
+    } else if (growth < 30) {
+      // Crescimento baixo: manter ou reduzir até 1 ponto
+      if (growth >= 0) {
+        // Crescimento baixo positivo: pequeno aumento ou manutenção
+        scoreAdjustment = -0.2 + Math.random() * 0.4; // -0.2 a +0.2
+        console.log(`📉 Crescimento baixo (${growth.toFixed(1)}%): ${scoreAdjustment >= 0 ? '+' : ''}${scoreAdjustment.toFixed(1)} pontos`);
+      } else {
+        // Crescimento negativo: reduzir até 1 ponto
+        scoreAdjustment = -1.0 + Math.random() * 0.5; // -1.0 a -0.5
+        console.log(`📉 Crescimento negativo (${growth.toFixed(1)}%): ${scoreAdjustment.toFixed(1)} pontos`);
+      }
+    }
+    
+    // Ajustes adicionais baseados em outros fatores
+    
+    // Fator de sentimento (influência menor)
+    const sentimentFactor = (sentiment - 0.5) * 0.3; // -0.15 a +0.15
+    scoreAdjustment += sentimentFactor;
+    
+    // Fator de volume (influência menor)
+    const volumeFactor = Math.log(volume + 1) / 100; // Logarítmico para evitar valores extremos
+    scoreAdjustment += volumeFactor;
+    
+    // Adicionar um pouco de volatilidade realística
+    const volatility = (Math.random() - 0.5) * 0.3; // -0.15 a +0.15
+    scoreAdjustment += volatility;
+    
+    // Calcular score previsto
+    let predictedScore = currentScore + scoreAdjustment;
+    
+    // Garantir que o score fique entre 0 e 10
+    predictedScore = Math.max(0, Math.min(10, predictedScore));
+    
+    console.log(`🎯 Previsão calculada:`, {
+      scoreAtual: currentScore.toFixed(1),
+      ajuste: scoreAdjustment.toFixed(1),
+      scorePrevisto: predictedScore.toFixed(1),
+      confianca: confidenceBase + '%'
+    });
+    
+    return {
+      scorePrevisto: Math.round(predictedScore * 10) / 10, // Arredondar para 1 casa decimal
+      confianca: confidenceBase
+    };
   }
 
   invalidateCache(keyword: string, timeRange?: string): void {
